@@ -58,7 +58,8 @@ Rerun it after any retraining. Slides include speaker notes.
 |---|---|
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layer-by-layer design, fusion policy, Docker topology |
 | [docs/REPORT.md](docs/REPORT.md) | Paper-style report: methodology, results, discussion |
-| [docs/DEMO_GUIDE.md](docs/DEMO_GUIDE.md) | Step-by-step live demo script and troubleshooting |
+| [docs/DEMO_GUIDE.md](docs/DEMO_GUIDE.md) | Step-by-step live demo run sheet and troubleshooting |
+| [docs/PRESENTATION_SCRIPT.md](docs/PRESENTATION_SCRIPT.md) | What to say, slide by slide, with demo cues and likely questions |
 | [docs/PACKET_TRACER_GUIDE.md](docs/PACKET_TRACER_GUIDE.md) | Cisco Packet Tracer topology build guide |
 | [reports/RESULTS.md](reports/RESULTS.md) | Full measured metrics and confusion matrices |
 
