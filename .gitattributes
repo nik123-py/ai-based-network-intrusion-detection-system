@@ -1,0 +1,16 @@
+# Keep LF line endings in the repository and in the working tree.
+#
+# The attack scripts and Docker files are executed inside Linux containers. On a
+# Windows clone with the default core.autocrlf=true they would be checked out
+# with CRLF, and /bin/sh then fails with "bad interpreter: /bin/sh^M". Forcing
+# eol=lf makes a clone work the same on Windows, macOS and Linux.
+* text=auto eol=lf
+
+# Binary artifacts: never touch these.
+*.png   binary
+*.pptx  binary
+*.joblib binary
+*.npz   binary
+*.keras binary
+*.zip   binary
+*.pkt   binary

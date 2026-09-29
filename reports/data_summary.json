@@ -1,0 +1,103 @@
+{
+  "days": "all",
+  "rows_loaded": 2830743,
+  "rows_nan_or_inf_dropped": 2867,
+  "rows_exact_duplicates_dropped": 631253,
+  "rows_conflicting_labels_dropped": 630,
+  "classes_dropped_as_rare": {
+    "Heartbleed": 11,
+    "Infiltration": 36
+  },
+  "rows_after_cleaning": 2195946,
+  "class_counts_after_cleaning": {
+    "Benign": 1859832,
+    "DoS": 182967,
+    "DDoS": 128009,
+    "DoS-Slow": 10600,
+    "BruteForce": 9150,
+    "WebAttack": 2143,
+    "PortScan": 1850,
+    "Bot": 1395
+  },
+  "max_train_rows_per_class": 400000,
+  "constant_features_dropped": [
+    "Fwd Avg Bytes/Bulk",
+    "Fwd Avg Packets/Bulk",
+    "Fwd Avg Bulk Rate",
+    "Bwd Avg Bytes/Bulk",
+    "Bwd Avg Packets/Bulk",
+    "Bwd Avg Bulk Rate"
+  ],
+  "n_features": 59,
+  "n_lite_features": 6,
+  "cross_split_duplicate_vectors": {
+    "train&val": 0,
+    "train&test": 0,
+    "val&test": 0
+  },
+  "splits": {
+    "train": {
+      "rows": 635280,
+      "shape_full": [
+        635280,
+        59
+      ],
+      "shape_lite": [
+        635280,
+        6
+      ],
+      "class_counts": {
+        "Benign": 400000,
+        "DoS": 128077,
+        "DDoS": 89606,
+        "DoS-Slow": 7420,
+        "BruteForce": 6405,
+        "WebAttack": 1500,
+        "PortScan": 1295,
+        "Bot": 977
+      }
+    },
+    "val": {
+      "rows": 329392,
+      "shape_full": [
+        329392,
+        59
+      ],
+      "shape_lite": [
+        329392,
+        6
+      ],
+      "class_counts": {
+        "Benign": 278975,
+        "DoS": 27445,
+        "DDoS": 19202,
+        "DoS-Slow": 1590,
+        "BruteForce": 1372,
+        "WebAttack": 322,
+        "PortScan": 277,
+        "Bot": 209
+      }
+    },
+    "test": {
+      "rows": 329392,
+      "shape_full": [
+        329392,
+        59
+      ],
+      "shape_lite": [
+        329392,
+        6
+      ],
+      "class_counts": {
+        "Benign": 278975,
+        "DoS": 27445,
+        "DDoS": 19201,
+        "DoS-Slow": 1590,
+        "BruteForce": 1373,
+        "WebAttack": 321,
+        "PortScan": 278,
+        "Bot": 209
+      }
+    }
+  }
+}

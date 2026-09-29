@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Datasets are downloaded separately and never committed
+data/*
+!data/download_data.sh
+
+# Trained models ARE tracked (about 31 MB) so the lab runs after a clone without
+# retraining. Regenerate them with: python -m src.cli train --days all
+logs/
+*.log
+*.log.*
+reports/cache/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

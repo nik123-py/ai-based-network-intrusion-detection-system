@@ -1,0 +1,11 @@
+.venv
+data
+models
+logs
+reports
+presentation
+notebooks
+docs
+tests
+**/__pycache__
+*.pyc
