@@ -36,6 +36,20 @@ Checklist:
 
 Open two terminals side by side, both in `netra/`.
 
+### Which shell you are using matters
+
+The attack commands differ slightly between PowerShell and Git Bash. Pick one and
+stick to it for the whole demo.
+
+- **PowerShell** (the usual choice on this machine): run the commands exactly as
+  written below. Nothing extra is needed.
+- **Git Bash**: prefix every `docker compose exec` command with
+  `MSYS_NO_PATHCONV=1`, otherwise MSYS rewrites `/attacks/...` into a Windows
+  path and you get `sh: 0: cannot open C:/Program Files/Git/attacks/...`.
+
+`MSYS_NO_PATHCONV=1` is bash syntax. Typing it in PowerShell fails with
+"The term 'MSYS_NO_PATHCONV=1' is not recognized".
+
 Terminal 1, start the lab and leave it running:
 
 ```bash
@@ -69,8 +83,8 @@ or the host. Point out that the attack tools also refuse any target outside
 
 ### Step 2: normal traffic, no alerts (about 1 minute)
 
-```bash
-MSYS_NO_PATHCONV=1 docker compose exec -T attacker sh /attacks/normal.sh 10.77.0.10 20 0.2
+```powershell
+docker compose exec -T attacker sh /attacks/normal.sh 10.77.0.10 20 0.2
 ```
 
 Point at the app: the flow counter and the traffic chart rise, and the alert feed
@@ -83,23 +97,25 @@ Run them one at a time and talk while each one runs. After each attack, wait for
 the alert to appear in the feed and the source to appear in the blocked table
 with a live countdown.
 
-```bash
+Run them **one at a time**, not as a block. Click **Unblock all** in the app
+between attacks, or the attacker is still blocked and its packets are dropped
+before Netra can see them.
+
+```powershell
 # Port scan -> PortScan alert
-MSYS_NO_PATHCONV=1 docker compose exec -T attacker sh /attacks/portscan.sh 10.77.0.10
+docker compose exec -T attacker sh /attacks/portscan.sh 10.77.0.10
 
 # SYN flood -> DoS alert
-MSYS_NO_PATHCONV=1 docker compose exec -T attacker sh /attacks/synflood.sh 10.77.0.10 80 15
+docker compose exec -T attacker sh /attacks/synflood.sh 10.77.0.10 80 15
 
 # Slow HTTP (Slowloris) -> DoS-Slow alert
-MSYS_NO_PATHCONV=1 docker compose exec -T attacker sh /attacks/slowloris.sh 10.77.0.10 80 200 25
+docker compose exec -T attacker sh /attacks/slowloris.sh 10.77.0.10 80 200 25
 
 # Brute force -> BruteForce alert
-MSYS_NO_PATHCONV=1 docker compose exec -T attacker sh /attacks/bruteforce.sh 10.77.0.10
+docker compose exec -T attacker sh /attacks/bruteforce.sh 10.77.0.10
 ```
 
-`MSYS_NO_PATHCONV=1` is only needed on Windows Git Bash, where a leading-slash
-argument would otherwise be rewritten into a Windows path. It is harmless
-elsewhere.
+In Git Bash, prefix each of these with `MSYS_NO_PATHCONV=1`.
 
 Things worth pointing out as they happen:
 
@@ -129,7 +145,7 @@ Click **Unblock all** in the app. The blocked table empties and the attacker can
 reach the victim again:
 
 ```bash
-MSYS_NO_PATHCONV=1 docker compose exec -T attacker curl -s -o /dev/null -w '%{http_code}\n' http://10.77.0.10/
+docker compose exec -T attacker curl -s -o /dev/null -w '%{http_code}\n' http://10.77.0.10/
 ```
 
 This returns 200 after the unblock. Switch the theme to dark to show the app is a
@@ -205,6 +221,7 @@ down && docker compose up -d` gives a completely clean state including counters.
 |---|---|
 | App shows "Disconnected" | The lab is not up, or port 8000 is taken. `docker compose ps`, then `docker compose up -d`. |
 | `cannot open C:/Program Files/Git/attacks/...` | Git Bash rewrote the path. Prefix the command with `MSYS_NO_PATHCONV=1`. |
+| `The term 'MSYS_NO_PATHCONV=1' is not recognized` | That prefix is bash syntax and you are in PowerShell. Drop it and run the command on its own. |
 | Attack runs but no alert | The attacker may still be blocked from the previous attack, so its packets are dropped. Click **Unblock all** and run it again. |
 | Victim returns no HTTP 200 | Slow HTTP attack still holding connections. Wait for it to finish, or `docker compose restart victim`. |
 | Models show "not loaded" | `models/` is empty or not mounted. Run `python -m src.cli train --days all`. |
