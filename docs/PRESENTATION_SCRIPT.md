@@ -364,6 +364,15 @@ MSYS_NO_PATHCONV=1 docker compose exec -T attacker sh /attacks/portscan.sh 10.77
 > That countdown is important. The block removes itself. If this were a false
 > positive, it costs that address ninety seconds, not a support ticket.
 
+**[CUE]** You will usually also see a DoS alert and an anomaly alert appear
+alongside the PortScan one. This is expected. Do not look surprised. If the
+examiner asks, say:
+
+> nmap at this speed sends SYN packets fast enough to cross my SYN flood
+> threshold as well, and the autoencoder independently sees the traffic as
+> abnormal. So three detectors agree from different evidence. The port scan alert
+> is the one that named the attack correctly, and it fired first.
+
 **[CUE]** Optionally run, to prove it is real:
 ```
 docker compose exec -T nids iptables -L NETRA -n
