@@ -1,0 +1,51 @@
+{
+  "threshold": 0.14632499933242818,
+  "threshold_percentile": 99.0,
+  "roc_auc": 0.9603071381185972,
+  "average_precision": 0.7989821271719415,
+  "detection_rate": 0.38869825654045265,
+  "false_positive_rate": 0.010051079845864324,
+  "precision": 0.8748270166510423,
+  "per_class": {
+    "Benign": {
+      "flows": 278975,
+      "flagged_share": 0.010051079845864324,
+      "median_error": 0.00477366941049695
+    },
+    "Bot": {
+      "flows": 209,
+      "flagged_share": 0.0,
+      "median_error": 0.017209092155098915
+    },
+    "BruteForce": {
+      "flows": 1373,
+      "flagged_share": 0.003641660597232338,
+      "median_error": 0.03128397837281227
+    },
+    "DDoS": {
+      "flows": 19201,
+      "flagged_share": 0.26144471642101974,
+      "median_error": 0.09895434975624084
+    },
+    "DoS": {
+      "flows": 27445,
+      "flagged_share": 0.4867553288394972,
+      "median_error": 0.14235246181488037
+    },
+    "DoS-Slow": {
+      "flows": 1590,
+      "flagged_share": 0.730188679245283,
+      "median_error": 0.3076939880847931
+    },
+    "PortScan": {
+      "flows": 278,
+      "flagged_share": 0.18345323741007194,
+      "median_error": 0.0435432568192482
+    },
+    "WebAttack": {
+      "flows": 321,
+      "flagged_share": 0.003115264797507788,
+      "median_error": 0.025395335629582405
+    }
+  }
+}

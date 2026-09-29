@@ -1,0 +1,40 @@
+# Netra dependency pins. Target interpreter: Python 3.11.
+# These versions were resolved together in a clean Python 3.11.15 venv.
+
+# Data and ML
+numpy==1.26.4
+pandas==3.0.6
+pyarrow==25.0.1
+scikit-learn==1.9.1
+xgboost==3.2.0
+imbalanced-learn==0.14.2
+joblib==1.6.0
+
+# Autoencoder (TensorFlow is CPU-only on Windows and macOS; no GPU is needed)
+tensorflow==2.21.0
+keras==3.15.1
+
+# Packet capture and flow features.
+# cicflowmeter 0.3.0 and later require Python >= 3.12, so 0.2.0 is the newest
+# release usable on 3.11. The custom extractor in src/features covers any gaps.
+scapy==2.7.0
+cicflowmeter==0.2.0
+
+# Dashboard
+fastapi==0.141.1
+uvicorn[standard]==0.54.0
+
+# Desktop app (Qt for Python, LGPL). Runs on the host, not in the containers.
+PySide6==6.11.2
+
+# Plots and presentation
+matplotlib==3.11.2
+seaborn==0.13.2
+python-pptx==1.0.2
+
+# Tests and notebook execution
+pytest==9.1.1
+httpx==0.28.1
+ipykernel==7.3.0
+nbformat==5.11.1
+nbclient==0.11.0

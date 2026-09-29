@@ -1,0 +1,69 @@
+# Netra attack lab: three containers on an isolated network.
+#
+#   attacker  10.77.0.66  testing tools; attached ONLY to the internal "lab" network
+#   victim    10.77.0.10  stock nginx; also on "mgmt" so ports can be published to the host
+#   nids      (shares the victim's network namespace) capture, detection, iptables response
+#
+# The "lab" network is internal: containers on it have no route to the internet,
+# the host LAN or the host itself. Published ports bind to 127.0.0.1 only.
+# The NIDS sees the victim's traffic because it shares the victim's network
+# namespace, and its iptables rules apply only inside that namespace, so the
+# host firewall is never touched.
+
+name: netra
+
+networks:
+  lab:
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.77.0.0/24
+  mgmt:
+    ipam:
+      config:
+        - subnet: 10.78.0.0/24
+
+services:
+  victim:
+    image: nginx:1.27-alpine
+    networks:
+      lab:
+        ipv4_address: 10.77.0.10
+      mgmt: {}
+    ports:
+      - "127.0.0.1:8000:8000"   # Netra event API (the NIDS listens inside this namespace)
+      - "127.0.0.1:8080:80"     # victim web page, for checking it from the host
+    volumes:
+      - ./docker/victim/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/victim/htpasswd:/etc/nginx/htpasswd:ro
+      - ./docker/victim/html:/usr/share/nginx/html:ro
+
+  nids:
+    build:
+      context: .
+      dockerfile: docker/nids/Dockerfile
+    network_mode: "service:victim"
+    cap_add:
+      - NET_ADMIN   # iptables rules inside the shared namespace
+      - NET_RAW     # packet capture
+    environment:
+      NETRA_IFACE: auto
+      NETRA_LAB_SUBNET: 10.77.0.0/24
+      NETRA_FIREWALL_BACKEND: iptables
+      NETRA_NEVER_BLOCK: "127.0.0.1,10.77.0.1,10.77.0.10,10.78.0.1"
+      NETRA_BLOCK_DURATION_S: "90"
+      NETRA_QUARANTINE_DURATION_S: "60"
+    volumes:
+      - ./models:/app/models:ro
+      - ./logs:/app/logs
+      - ./scripts:/app/scripts:ro   # diagnostic tools (e.g. scripts/diagnose_ae.py)
+    depends_on:
+      - victim
+
+  attacker:
+    build: docker/attacker
+    networks:
+      lab:
+        ipv4_address: 10.77.0.66
+    volumes:
+      - ./scripts/attacks:/attacks:ro

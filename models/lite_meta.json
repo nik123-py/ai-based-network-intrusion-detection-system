@@ -1,0 +1,41 @@
+{
+  "kind": "lite",
+  "best": "random_forest",
+  "selection_metric": "validation macro F1",
+  "classes": [
+    "Benign",
+    "Bot",
+    "BruteForce",
+    "DDoS",
+    "DoS",
+    "DoS-Slow",
+    "PortScan",
+    "WebAttack"
+  ],
+  "features": [
+    "flow_duration",
+    "packets_per_sec",
+    "bytes_per_sec",
+    "mean_packet_size",
+    "src_unique_dst_ports",
+    "src_unique_dsts"
+  ],
+  "imbalance_handling": "balanced class weights (training split only)",
+  "candidates": {
+    "random_forest": {
+      "path": "lite_random_forest.joblib",
+      "train_seconds": 17.2,
+      "val_accuracy": 0.9915753873803856,
+      "val_macro_f1": 0.8357682386677934,
+      "val_weighted_f1": 0.993631114713036
+    },
+    "xgboost": {
+      "path": "lite_xgboost.joblib",
+      "train_seconds": 48.5,
+      "val_accuracy": 0.9865661582552095,
+      "val_macro_f1": 0.8070867024138452,
+      "val_weighted_f1": 0.990505586263006,
+      "best_iteration": 320
+    }
+  }
+}
