@@ -19,6 +19,16 @@ Timings assume a steady pace. If you are running long, the slides marked
 "Connected", terminal open beside it in the `netra` folder, deck open on slide 1.
 Run one `normal.sh` beforehand so the traffic chart is not flat and empty.
 
+**[CUE]** The commands below are written for **PowerShell**, which is what this
+machine uses. If you present from Git Bash instead, prefix every
+`docker compose exec` line with `MSYS_NO_PATHCONV=1`. Do not mix the two: typing
+that prefix in PowerShell gives "The term 'MSYS_NO_PATHCONV=1' is not
+recognized", which is an awkward thing to debug in front of an examiner.
+
+**[CUE]** Run the attacks **one at a time**, and click **Unblock all** between
+them. If you paste several at once they all run back to back, the attacker is
+blocked after the first one, and the rest look like they did nothing.
+
 Have `docs/DEMO_GUIDE.md` open in a third window in case something breaks.
 
 ---
@@ -337,7 +347,7 @@ Have `docs/DEMO_GUIDE.md` open in a third window in case something breaks.
 
 **[CUE]** Run:
 ```
-MSYS_NO_PATHCONV=1 docker compose exec -T attacker sh /attacks/normal.sh 10.77.0.10 20 0.2
+docker compose exec -T attacker sh /attacks/normal.sh 10.77.0.10 20 0.2
 ```
 
 > First, ordinary web traffic. Twenty normal page requests.
@@ -351,7 +361,7 @@ MSYS_NO_PATHCONV=1 docker compose exec -T attacker sh /attacks/normal.sh 10.77.0
 
 **[CUE]** Run:
 ```
-MSYS_NO_PATHCONV=1 docker compose exec -T attacker sh /attacks/portscan.sh 10.77.0.10
+docker compose exec -T attacker sh /attacks/portscan.sh 10.77.0.10
 ```
 
 > Now a port scan with nmap, against a thousand ports.
@@ -385,7 +395,7 @@ docker compose exec -T nids iptables -L NETRA -n
 
 **[CUE]** Click **Unblock all** first, then run:
 ```
-MSYS_NO_PATHCONV=1 docker compose exec -T attacker sh /attacks/bruteforce.sh 10.77.0.10
+docker compose exec -T attacker sh /attacks/bruteforce.sh 10.77.0.10
 ```
 
 > Now a password attack against the login page, using hydra.
