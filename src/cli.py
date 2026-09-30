@@ -11,6 +11,8 @@ Commands:
     live         Capture packets on an interface, detect and respond in real time.
     app          Open the Netra desktop app and connect to a running engine.
     demo         Scripted replay plus the desktop app in one command (no Docker needed).
+    calibrate    Retune the autoencoder threshold on this network's own benign traffic.
+    cross-eval   Test the trained models against a second dataset (UNSW-NB15).
     unblock-all  Remove every block and quarantine rule added by Netra.
 """
 
@@ -22,6 +24,13 @@ import sys
 import time
 
 ALL_KINDS = ["full", "lite", "autoencoder"]
+
+
+def config_percentile() -> float:
+    """Default threshold percentile, read lazily so --help stays fast."""
+    from src import config
+
+    return config.AE_THRESHOLD_PERCENTILE
 
 
 # ---------------------------------------------------------------------------
@@ -165,6 +174,43 @@ def cmd_demo(args: argparse.Namespace) -> int:
     return code
 
 
+def cmd_cross_eval(args: argparse.Namespace) -> int:
+    from src.data import unsw
+    from src.models import cross_eval
+
+    if not unsw.available():
+        print(f"UNSW-NB15 not found at {unsw.UNSW_PARQUET}.\n"
+              f"Fetch it with:  bash data/download_unsw.sh")
+        return 1
+    result = cross_eval.run(header_correction_variant=not args.no_variant, limit=args.limit)
+    cross_eval.print_summary(result)
+    return 0
+
+
+def cmd_calibrate(args: argparse.Namespace) -> int:
+    from src.models import calibrate
+
+    if args.reset:
+        r = calibrate.reset()
+        print(f"Threshold restored to the dataset value {r['threshold']:.5f} "
+              f"(was {r['previous_threshold']:.5f}).")
+        return 0
+
+    if args.pcap:
+        errors, source = calibrate.collect_pcap(args.pcap, speed=args.speed)
+    else:
+        print(f"Capturing benign traffic for {args.seconds:.0f} s. Make sure the network is "
+              f"quiet: anything hostile seen now teaches Netra to tolerate it.")
+        errors, source = calibrate.collect_live(args.seconds, args.iface)
+    try:
+        result = calibrate.apply(errors, source, percentile=args.percentile, dry_run=args.dry_run)
+    except ValueError as e:
+        print(f"Calibration aborted: {e}")
+        return 1
+    calibrate.print_summary(result, dry_run=args.dry_run)
+    return 0
+
+
 def cmd_unblock_all(args: argparse.Namespace) -> int:
     import urllib.request
 
@@ -243,6 +289,23 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--loops", type=int, default=100, help="replay script repetitions")
     app_args(p)
     p.set_defaults(func=cmd_demo)
+
+    p = sub.add_parser("cross-eval", help="test the trained models on UNSW-NB15 (a second dataset)")
+    p.add_argument("--limit", type=int, default=None, help="score only the first N flows (for a quick run)")
+    p.add_argument("--no-variant", action="store_true",
+                   help="skip the header-corrected byte-accounting variant")
+    p.set_defaults(func=cmd_cross_eval)
+
+    p = sub.add_parser("calibrate", help="retune the autoencoder threshold on this network's traffic")
+    p.add_argument("--seconds", type=float, default=300.0, help="how long to observe (default 300)")
+    p.add_argument("--iface", default=None, help="capture interface (default: NETRA_IFACE)")
+    p.add_argument("--pcap", default=None, help="calibrate from a capture file instead of live traffic")
+    p.add_argument("--speed", type=float, default=0.0, help="PCAP replay speed (0 = as fast as possible)")
+    p.add_argument("--percentile", type=float, default=None,
+                   help=f"threshold percentile (default {config_percentile()})")
+    p.add_argument("--dry-run", action="store_true", help="report the new threshold without saving it")
+    p.add_argument("--reset", action="store_true", help="restore the dataset-derived threshold")
+    p.set_defaults(func=cmd_calibrate)
 
     p = sub.add_parser("unblock-all", help="remove all Netra firewall rules")
     p.add_argument("--url", default="http://127.0.0.1:8000", help="engine event API base URL")

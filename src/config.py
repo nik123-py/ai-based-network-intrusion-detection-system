@@ -177,6 +177,17 @@ SUPERVISED_MIN_CONFIDENCE = _env_float("SUPERVISED_MIN_CONFIDENCE", 0.60)
 AE_THRESHOLD_PERCENTILE = 99.0  # percentile of benign validation reconstruction error
 
 # ---------------------------------------------------------------------------
+# Explanations
+# ---------------------------------------------------------------------------
+# Each alert from a supervised model can carry the features that drove the
+# prediction (src/models/explain.py). One explanation costs a few milliseconds,
+# so only flows that open a NEW alert are explained, and at most this many per
+# scoring batch, which bounds the cost during a flood.
+EXPLAIN_ENABLED = _env("EXPLAIN_ENABLED", "1") == "1"
+EXPLAIN_TOP_K = _env_int("EXPLAIN_TOP_K", 4)
+EXPLAIN_MAX_PER_BATCH = _env_int("EXPLAIN_MAX_PER_BATCH", 20)
+
+# ---------------------------------------------------------------------------
 # Response
 # ---------------------------------------------------------------------------
 RESPONSE_ENABLED = _env("RESPONSE_ENABLED", "1") == "1"

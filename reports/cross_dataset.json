@@ -1,0 +1,556 @@
+{
+  "dataset": "UNSW-NB15",
+  "source": "UNSW_Flow.parquet",
+  "model": "lite/random_forest",
+  "features": [
+    "flow_duration",
+    "packets_per_sec",
+    "bytes_per_sec",
+    "mean_packet_size",
+    "src_unique_dst_ports",
+    "src_unique_dsts"
+  ],
+  "header_correction": false,
+  "min_confidence": 0.6,
+  "scored_flows": 2059415,
+  "seconds": 2.9,
+  "summary": {
+    "flows": 2059415,
+    "attacks": 99643,
+    "benign": 1959772,
+    "categories": {
+      "normal": 1959772,
+      "exploits": 27599,
+      "generic": 25378,
+      "fuzzers": 21795,
+      "reconnaissance": 13357,
+      "dos": 5665,
+      "analysis": 2184,
+      "backdoor": 1983,
+      "shellcode": 1511,
+      "worms": 171
+    },
+    "mapped_categories": {
+      "normal": "Benign",
+      "dos": "DoS",
+      "reconnaissance": "PortScan"
+    }
+  },
+  "binary": {
+    "detection_rate": 0.00029103900926306914,
+    "false_positive_rate": 0.00061384691688625,
+    "attacks": 99643,
+    "attacks_flagged": 29,
+    "benign": 1959772,
+    "benign_flagged": 1203
+  },
+  "in_domain_cicids2017": {
+    "detection_rate": 0.9975801812880576,
+    "false_positive_rate": 0.009653194730710636,
+    "model": "random_forest"
+  },
+  "per_category": {
+    "analysis": {
+      "flows": 2184,
+      "flagged_share": 0.0,
+      "netra_class": null,
+      "predicted_as": [
+        {
+          "class": "Benign",
+          "share": 1.0
+        }
+      ]
+    },
+    "backdoor": {
+      "flows": 1983,
+      "flagged_share": 0.0010085728693898135,
+      "netra_class": null,
+      "predicted_as": [
+        {
+          "class": "Benign",
+          "share": 0.999
+        },
+        {
+          "class": "Bot",
+          "share": 0.001
+        }
+      ]
+    },
+    "dos": {
+      "flows": 5665,
+      "flagged_share": 0.000176522506619594,
+      "netra_class": "DoS",
+      "predicted_as": [
+        {
+          "class": "Benign",
+          "share": 0.9996
+        },
+        {
+          "class": "Bot",
+          "share": 0.0004
+        }
+      ]
+    },
+    "exploits": {
+      "flows": 27599,
+      "flagged_share": 0.0003623319685495851,
+      "netra_class": null,
+      "predicted_as": [
+        {
+          "class": "Benign",
+          "share": 0.9996
+        },
+        {
+          "class": "Bot",
+          "share": 0.0004
+        }
+      ]
+    },
+    "fuzzers": {
+      "flows": 21795,
+      "flagged_share": 0.0005964670796054141,
+      "netra_class": null,
+      "predicted_as": [
+        {
+          "class": "Benign",
+          "share": 0.9989
+        },
+        {
+          "class": "Bot",
+          "share": 0.0011
+        }
+      ]
+    },
+    "generic": {
+      "flows": 25378,
+      "flagged_share": 0.0,
+      "netra_class": null,
+      "predicted_as": [
+        {
+          "class": "Benign",
+          "share": 1.0
+        }
+      ]
+    },
+    "normal": {
+      "flows": 1959772,
+      "flagged_share": 0.00061384691688625,
+      "netra_class": "Benign",
+      "predicted_as": [
+        {
+          "class": "Benign",
+          "share": 0.9993
+        },
+        {
+          "class": "DoS-Slow",
+          "share": 0.0006
+        },
+        {
+          "class": "DDoS",
+          "share": 0.0001
+        }
+      ]
+    },
+    "reconnaissance": {
+      "flows": 13357,
+      "flagged_share": 0.0,
+      "netra_class": "PortScan",
+      "predicted_as": [
+        {
+          "class": "Benign",
+          "share": 1.0
+        }
+      ]
+    },
+    "shellcode": {
+      "flows": 1511,
+      "flagged_share": 0.001985440105890139,
+      "netra_class": null,
+      "predicted_as": [
+        {
+          "class": "Benign",
+          "share": 0.998
+        },
+        {
+          "class": "Bot",
+          "share": 0.002
+        }
+      ]
+    },
+    "worms": {
+      "flows": 171,
+      "flagged_share": 0.0,
+      "netra_class": null,
+      "predicted_as": [
+        {
+          "class": "Benign",
+          "share": 1.0
+        }
+      ]
+    }
+  },
+  "named_categories": {
+    "dos": {
+      "netra_class": "DoS",
+      "flows": 5665,
+      "correct_class_share": 0.0,
+      "flagged_share": 0.000176522506619594
+    },
+    "reconnaissance": {
+      "netra_class": "PortScan",
+      "flows": 13357,
+      "correct_class_share": 0.0,
+      "flagged_share": 0.0
+    }
+  },
+  "confidence_sweep": [
+    {
+      "min_confidence": 0.0,
+      "detection_rate": 0.000401433116224923,
+      "false_positive_rate": 0.0007133482874538467
+    },
+    {
+      "min_confidence": 0.5,
+      "detection_rate": 0.000401433116224923,
+      "false_positive_rate": 0.0006852837983193963
+    },
+    {
+      "min_confidence": 0.6,
+      "detection_rate": 0.00029103900926306914,
+      "false_positive_rate": 0.00061384691688625
+    },
+    {
+      "min_confidence": 0.7,
+      "detection_rate": 0.00017060907439559226,
+      "false_positive_rate": 0.0006010903309160453
+    },
+    {
+      "min_confidence": 0.8,
+      "detection_rate": 0.0,
+      "false_positive_rate": 1.0205268776163757e-06
+    },
+    {
+      "min_confidence": 0.9,
+      "detection_rate": 0.0,
+      "false_positive_rate": 5.102634388081879e-07
+    }
+  ],
+  "header_corrected": {
+    "dataset": "UNSW-NB15",
+    "source": "UNSW_Flow.parquet",
+    "model": "lite/random_forest",
+    "features": [
+      "flow_duration",
+      "packets_per_sec",
+      "bytes_per_sec",
+      "mean_packet_size",
+      "src_unique_dst_ports",
+      "src_unique_dsts"
+    ],
+    "header_correction": true,
+    "min_confidence": 0.6,
+    "scored_flows": 2059415,
+    "seconds": 3.0,
+    "summary": {
+      "flows": 2059415,
+      "attacks": 99643,
+      "benign": 1959772,
+      "categories": {
+        "normal": 1959772,
+        "exploits": 27599,
+        "generic": 25378,
+        "fuzzers": 21795,
+        "reconnaissance": 13357,
+        "dos": 5665,
+        "analysis": 2184,
+        "backdoor": 1983,
+        "shellcode": 1511,
+        "worms": 171
+      },
+      "mapped_categories": {
+        "normal": "Benign",
+        "dos": "DoS",
+        "reconnaissance": "PortScan"
+      }
+    },
+    "binary": {
+      "detection_rate": 0.0002007165581124615,
+      "false_positive_rate": 2.2451591307560268e-05,
+      "attacks": 99643,
+      "attacks_flagged": 20,
+      "benign": 1959772,
+      "benign_flagged": 44
+    },
+    "in_domain_cicids2017": {
+      "detection_rate": 0.9975801812880576,
+      "false_positive_rate": 0.009653194730710636,
+      "model": "random_forest"
+    },
+    "per_category": {
+      "analysis": {
+        "flows": 2184,
+        "flagged_share": 0.0,
+        "netra_class": null,
+        "predicted_as": [
+          {
+            "class": "Benign",
+            "share": 1.0
+          }
+        ]
+      },
+      "backdoor": {
+        "flows": 1983,
+        "flagged_share": 0.0,
+        "netra_class": null,
+        "predicted_as": [
+          {
+            "class": "Benign",
+            "share": 0.9995
+          },
+          {
+            "class": "Bot",
+            "share": 0.0005
+          }
+        ]
+      },
+      "dos": {
+        "flows": 5665,
+        "flagged_share": 0.000176522506619594,
+        "netra_class": "DoS",
+        "predicted_as": [
+          {
+            "class": "Benign",
+            "share": 0.9995
+          },
+          {
+            "class": "Bot",
+            "share": 0.0005
+          }
+        ]
+      },
+      "exploits": {
+        "flows": 27599,
+        "flagged_share": 0.0005434979528243777,
+        "netra_class": null,
+        "predicted_as": [
+          {
+            "class": "Benign",
+            "share": 0.9986
+          },
+          {
+            "class": "Bot",
+            "share": 0.0014
+          }
+        ]
+      },
+      "fuzzers": {
+        "flows": 21795,
+        "flagged_share": 4.588208304657031e-05,
+        "netra_class": null,
+        "predicted_as": [
+          {
+            "class": "Benign",
+            "share": 0.9996
+          },
+          {
+            "class": "Bot",
+            "share": 0.0004
+          }
+        ]
+      },
+      "generic": {
+        "flows": 25378,
+        "flagged_share": 0.0,
+        "netra_class": null,
+        "predicted_as": [
+          {
+            "class": "Benign",
+            "share": 0.9999
+          },
+          {
+            "class": "Bot",
+            "share": 0.0001
+          }
+        ]
+      },
+      "normal": {
+        "flows": 1959772,
+        "flagged_share": 2.2451591307560268e-05,
+        "netra_class": "Benign",
+        "predicted_as": [
+          {
+            "class": "Benign",
+            "share": 0.9998
+          },
+          {
+            "class": "DDoS",
+            "share": 0.0001
+          },
+          {
+            "class": "DoS",
+            "share": 0.0
+          }
+        ]
+      },
+      "reconnaissance": {
+        "flows": 13357,
+        "flagged_share": 0.0001497342217563824,
+        "netra_class": "PortScan",
+        "predicted_as": [
+          {
+            "class": "Benign",
+            "share": 0.9995
+          },
+          {
+            "class": "Bot",
+            "share": 0.0005
+          }
+        ]
+      },
+      "shellcode": {
+        "flows": 1511,
+        "flagged_share": 0.0006618133686300463,
+        "netra_class": null,
+        "predicted_as": [
+          {
+            "class": "Benign",
+            "share": 0.9987
+          },
+          {
+            "class": "Bot",
+            "share": 0.0013
+          }
+        ]
+      },
+      "worms": {
+        "flows": 171,
+        "flagged_share": 0.0,
+        "netra_class": null,
+        "predicted_as": [
+          {
+            "class": "Benign",
+            "share": 0.9942
+          },
+          {
+            "class": "Bot",
+            "share": 0.0058
+          }
+        ]
+      }
+    },
+    "named_categories": {
+      "dos": {
+        "netra_class": "DoS",
+        "flows": 5665,
+        "correct_class_share": 0.0,
+        "flagged_share": 0.000176522506619594
+      },
+      "reconnaissance": {
+        "netra_class": "PortScan",
+        "flows": 13357,
+        "correct_class_share": 0.0,
+        "flagged_share": 0.0001497342217563824
+      }
+    },
+    "confidence_sweep": [
+      {
+        "min_confidence": 0.0,
+        "detection_rate": 0.0006422929859598767,
+        "false_positive_rate": 0.00018777694548141315
+      },
+      {
+        "min_confidence": 0.5,
+        "detection_rate": 0.0006422929859598767,
+        "false_positive_rate": 0.00010664505871091127
+      },
+      {
+        "min_confidence": 0.6,
+        "detection_rate": 0.0002007165581124615,
+        "false_positive_rate": 2.2451591307560268e-05
+      },
+      {
+        "min_confidence": 0.7,
+        "detection_rate": 8.028662324498459e-05,
+        "false_positive_rate": 1.2756585970204697e-05
+      },
+      {
+        "min_confidence": 0.8,
+        "detection_rate": 0.0,
+        "false_positive_rate": 9.69500533735557e-06
+      },
+      {
+        "min_confidence": 0.9,
+        "detection_rate": 0.0,
+        "false_positive_rate": 5.102634388081879e-07
+      }
+    ]
+  },
+  "variants": {
+    "uncorrected": {
+      "detection_rate": 0.00029103900926306914,
+      "false_positive_rate": 0.00061384691688625,
+      "attacks": 99643,
+      "attacks_flagged": 29,
+      "benign": 1959772,
+      "benign_flagged": 1203
+    },
+    "header_corrected": {
+      "detection_rate": 0.0002007165581124615,
+      "false_positive_rate": 2.2451591307560268e-05,
+      "attacks": 99643,
+      "attacks_flagged": 20,
+      "benign": 1959772,
+      "benign_flagged": 44
+    }
+  },
+  "feature_shift": [
+    {
+      "feature": "flow_duration",
+      "cic_benign": 0.05887699872255325,
+      "cic_attack": 63.121673583984375,
+      "unsw_benign": 0.025915000587701797,
+      "unsw_attack": 0.303725004196167,
+      "benign_ratio": 0.44015491872847234
+    },
+    {
+      "feature": "packets_per_sec",
+      "cic_benign": 65.53187561035156,
+      "cic_attack": 0.191509410738945,
+      "unsw_benign": 2775.115478515625,
+      "unsw_attack": 79.22425842285156,
+      "benign_ratio": 42.34756677828494
+    },
+    {
+      "feature": "bytes_per_sec",
+      "cic_benign": 3762.296630859375,
+      "cic_attack": 138.06614685058594,
+      "unsw_benign": 304559.25,
+      "unsw_attack": 41890.125,
+      "benign_ratio": 80.95035556258978
+    },
+    {
+      "feature": "mean_packet_size",
+      "cic_benign": 73.0,
+      "cic_attack": 897.1538696289062,
+      "unsw_benign": 161.0,
+      "unsw_attack": 84.0,
+      "benign_ratio": 2.2054794520547945
+    },
+    {
+      "feature": "src_unique_dst_ports",
+      "cic_benign": 4.0,
+      "cic_attack": 1.0,
+      "unsw_benign": 59.0,
+      "unsw_attack": 8.0,
+      "benign_ratio": 14.75
+    },
+    {
+      "feature": "src_unique_dsts",
+      "cic_benign": 26.0,
+      "cic_attack": 1.0,
+      "unsw_benign": 10.0,
+      "unsw_attack": 8.0,
+      "benign_ratio": 0.38461538461538464
+    }
+  ]
+}
