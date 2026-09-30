@@ -39,6 +39,7 @@ import numpy as np
 from src import config
 from src.detection.signatures import SignatureEngine, SignatureHit
 from src.features.flow_features import FlowRecord, PacketInfo, align_to_schema
+from src.models.explain import describe
 from src.response.responder import Responder, action_logger
 
 log = logging.getLogger(__name__)
@@ -122,6 +123,25 @@ class Models:
             if model is not None and hasattr(model, "n_jobs"):
                 model.n_jobs = 1  # small live batches: threads cost more than they save
 
+        # Per-alert explanations. Optional: a missing or unsupported model just
+        # means alerts carry no explanation.
+        self.full_explainer = self.lite_explainer = None
+        if config.EXPLAIN_ENABLED:
+            from src.models.explain import Explainer
+
+            if self.full is not None:
+                self.full_explainer = Explainer(self.full, self.features)
+            if self.lite is not None:
+                self.lite_explainer = Explainer(self.lite, self.lite_features)
+
+    def explainer_for(self, model_name: str | None):
+        """The explainer matching the model that produced a verdict, if any."""
+        if model_name == self.full_name:
+            return self.full_explainer, self.features
+        if model_name == self.lite_name:
+            return self.lite_explainer, self.lite_features
+        return None, None
+
 
 class DetectionEngine:
     def __init__(self, responder: Responder | None = None, bus: EventBus | None = None,
@@ -167,15 +187,18 @@ class DetectionEngine:
         n = len(flows)
         verdicts = [{"attack": config.BENIGN_LABEL, "confidence": 0.0, "detector": None, "model": None}
                     for _ in range(n)]
-        X_full = None
+        # Scaled matrices feed the models; the raw ones are kept so an
+        # explanation can quote the value a person would recognise.
+        X_full = raw_full = X_lite = raw_lite = None
         if m.full is not None:
-            raw = np.vstack([align_to_schema(f.cic, m.features) for f in flows])
-            X_full = m.full_scaler.transform(raw).astype(np.float32)
+            raw_full = np.vstack([align_to_schema(f.cic, m.features) for f in flows])
+            X_full = m.full_scaler.transform(raw_full).astype(np.float32)
             proba = m.full.predict_proba(X_full)
             self._apply_supervised(verdicts, proba, m.full_name)
         if m.lite is not None:
-            raw = np.vstack([align_to_schema(f.lite, m.lite_features) for f in flows])
-            proba = m.lite.predict_proba(m.lite_scaler.transform(raw).astype(np.float32))
+            raw_lite = np.vstack([align_to_schema(f.lite, m.lite_features) for f in flows])
+            X_lite = m.lite_scaler.transform(raw_lite).astype(np.float32)
+            proba = m.lite.predict_proba(X_lite)
             self._apply_supervised(verdicts, proba, m.lite_name)
         if m.autoencoder is not None and X_full is not None:
             err = m.autoencoder.score(X_full)
@@ -185,7 +208,47 @@ class DetectionEngine:
                     # 0 at the threshold, 0.5 at twice the threshold, 0.9 at ten times.
                     v.update(attack=ANOMALY_LABEL, detector="anomaly", model="autoencoder",
                              confidence=float(min(0.99, 1.0 - m.autoencoder.threshold / e)))
+        if config.EXPLAIN_ENABLED:
+            self._explain(flows, verdicts, {m.full_name: (X_full, raw_full),
+                                            m.lite_name: (X_lite, raw_lite)})
         return verdicts
+
+    def _explain(self, flows, verdicts, matrices) -> None:
+        """Attach feature attributions to verdicts that will open a new alert.
+
+        Explaining costs a few milliseconds per flow, so flows that would only
+        increment an already-open alert are skipped, and the batch is capped.
+        That keeps a flood of thousands of flows from stalling the scoring loop.
+        """
+        m = self.models
+        done = 0
+        for i, v in enumerate(verdicts):
+            if done >= config.EXPLAIN_MAX_PER_BATCH:
+                return
+            if v["detector"] != "ml":
+                continue
+            explainer, feature_names = m.explainer_for(v["model"])
+            if explainer is None or not explainer.available:
+                continue
+            X, raw = matrices.get(v["model"], (None, None))
+            if X is None:
+                continue
+            with self._lock:
+                already_open = (flows[i].src, v["attack"], "ml") in self._open_alerts
+            if already_open:
+                continue
+            try:
+                class_idx = m.classes.index(v["attack"])
+            except ValueError:
+                continue
+            try:
+                v["explain"] = explainer.explain(
+                    X[i], class_idx, raw=dict(zip(feature_names, raw[i])),
+                    top_k=config.EXPLAIN_TOP_K)
+            except Exception:
+                log.debug("explanation failed for flow %d", i, exc_info=True)
+                continue
+            done += 1
 
     def _apply_supervised(self, verdicts, proba, model_name) -> None:
         m = self.models
@@ -250,12 +313,17 @@ class DetectionEngine:
         else:
             severity = "high" if v["confidence"] >= config.SUPERVISED_CONFIDENCE else "medium"
             desc = f"{v['attack']} predicted by {v['model']} with confidence {v['confidence']:.2f}"
+            reason = describe(v.get("explain") or [])
+            if reason:
+                desc = f"{desc}, {reason}"
         self._raise(src=flow.src, dst=flow.dst, dport=flow.dport, attack=v["attack"],
                     confidence=v["confidence"], detector=v["detector"], model=v["model"],
                     description=desc, severity=severity,
-                    evidence={"packets": flow.n_packets, "bytes": flow.n_bytes})
+                    evidence={"packets": flow.n_packets, "bytes": flow.n_bytes},
+                    explain=v.get("explain"))
 
-    def _raise(self, src, dst, dport, attack, confidence, detector, model, description, severity, evidence):
+    def _raise(self, src, dst, dport, attack, confidence, detector, model, description, severity,
+               evidence, explain=None):
         now = time.time()
         key = (src, attack, detector.split(":")[0])
         with self._lock:
@@ -273,7 +341,7 @@ class DetectionEngine:
                 "src": src, "dst": dst, "dport": int(dport), "attack": attack,
                 "confidence": round(float(confidence), 3), "detector": detector, "model": model,
                 "severity": severity, "description": description, "evidence": evidence,
-                "count": 1, "action": "pending",
+                "explain": explain or [], "count": 1, "action": "pending",
             }
             self._open_alerts[key] = alert
             self.totals["alerts"] += 1
@@ -315,9 +383,14 @@ class DetectionEngine:
             self.bus.publish({"type": "blocks", "blocks": self.responder.active()})
 
     def status(self) -> dict:
+        importance = []
+        if self.models.full_explainer is not None:
+            importance = self.models.full_explainer.global_importance(top_k=8)
+        elif self.models.lite_explainer is not None:
+            importance = self.models.lite_explainer.global_importance(top_k=8)
         return {"type": "status", "mode": self.mode, "started": self.started, "models": self.models.status,
                 "classes": self.models.classes, "firewall_backend": self.responder.backend,
-                "response_enabled": self.responder.enabled,
+                "response_enabled": self.responder.enabled, "feature_importance": importance,
                 "thresholds": {"supervised_high": config.SUPERVISED_CONFIDENCE,
                                "supervised_min": config.SUPERVISED_MIN_CONFIDENCE,
                                "syn_rate": config.SYN_RATE_THRESHOLD,

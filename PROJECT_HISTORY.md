@@ -140,6 +140,52 @@ Verification: the deck was rendered slide by slide to PNG through PowerPoint COM
 (`$pp.Presentations.Open(...)`, `SaveAs(dir, 18)`) and each slide inspected for overflow and
 layout. That is the only way to check a generated deck on this host; LibreOffice is not installed.
 
+## Post-phase-10 additions (tier 1 features)
+
+Three features added after the phased build finished. All three exist to test or tune the system
+against something other than its own training distribution.
+
+**1. Cross-dataset evaluation** (`src/data/unsw.py`, `src/models/cross_eval.py`, CLI `cross-eval`).
+Runs the CIC-trained lite model unchanged over all 2,059,415 UNSW-NB15 flows. Only the lite model
+can transfer: the 59 full features are CICFlowMeter's own output with no UNSW counterpart. Feature
+arithmetic is shared with training via `preprocess.lite_flow_features`, so conversion is identical
+on both sides.
+
+**The headline result is a failure, and it is the most important number in the project:**
+detection drops from **0.9976 in domain to 0.0003** on UNSW-NB15 (29 of 99,643 attacks). Every
+attack category is predicted Benign. Verified not to be an artifact: at min confidence 0 (pure
+argmax) it is 0.0004, and with header-byte correction 0.0002. The cause is in the feature medians:
+UNSW benign traffic runs at 2,775 packets/s and UNSW *attacks* at 79 packets/s, while CIC benign
+is 66 packets/s. The model learned "slow means attack" and UNSW's normal traffic is 40x faster than
+CIC's, so the boundary points the wrong way. Do not present the 0.9976 as a general detection rate.
+
+**2. Per-alert explanations** (`src/models/explain.py`). Exact Saabas decomposition of a Random
+Forest prediction: `bias + sum(per-feature contributions) == predict_proba`, verified to 1e-15.
+Implemented directly rather than via `treeinterpreter`/SHAP so the NIDS container gains no
+dependency. Costs ~2.5 ms per flow, so only flows opening a *new* alert are explained, capped at
+`EXPLAIN_MAX_PER_BATCH=20` per batch. Alerts now read: `DoS-Slow predicted by full/random_forest
+with confidence 0.97, driven by Bwd Packets/s=0.0, Flow Packets/s=0.111, Flow IAT Mean=10500000`.
+
+**3. Autoencoder threshold calibration** (`src/models/calibrate.py`, CLI `calibrate`). Re-derives
+the threshold from local traffic. Measured in the lab: 222 completed flows gave median error 0.0776
+and p99 0.0904 against the dataset threshold of 0.1463, so the shipped threshold is 1.6x too
+tolerant for this network.
+
+Gotchas found while building these:
+- **Flush flows poison calibration.** `FlowTable.flush()` emits every still-open flow when capture
+  stops; those are truncated and their rates describe the capture window. An early run collected
+  12,042 near-identical flows this way and produced a threshold of 0.432 (2.95x too tolerant).
+  Fixed by skipping `reason == "flush"` and by refusing any capture whose errors are degenerate
+  (median >= 0.999 * p99, or fewer than 20 distinct values). Both are tested.
+- **pandas 3.0 turns None into NaN** in object columns regardless of how they are built, and NaN is
+  truthy, so `if not netra_class` silently breaks. The `netra_class` column is therefore documented
+  as "use `pd.isna()`", and code needing real None reads `CATEGORY_MAP` directly.
+- The **nids image bakes in `src/`**, so `docker compose build nids` is required before any new CLI
+  command works inside the container.
+- UNSW-NB15 data is gitignored (175 MB). Fetch with `bash data/download_unsw.sh` (SHA-256 pinned).
+
+Tests went from 31 to 58: `tests/test_explain.py`, `tests/test_calibrate.py`, `tests/test_unsw.py`.
+
 ## What to do next
 
 Phases 0 to 10 are complete. Remaining optional work:

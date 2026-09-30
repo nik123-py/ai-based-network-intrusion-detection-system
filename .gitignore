@@ -9,6 +9,7 @@ venv/
 # Datasets are downloaded separately and never committed
 data/*
 !data/download_data.sh
+!data/download_unsw.sh
 
 # Trained models ARE tracked (about 31 MB) so the lab runs after a clone without
 # retraining. Regenerate them with: python -m src.cli train --days all

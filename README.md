@@ -52,6 +52,42 @@ python presentation/build_ppt.py        # writes presentation/Netra.pptx (25 sli
 
 Rerun it after any retraining. Slides include speaker notes.
 
+## Validation and tuning
+
+Three commands exercise the system beyond its own training data.
+
+**Cross-dataset evaluation.** Runs the CIC-IDS2017-trained lite model, unchanged,
+over UNSW-NB15 to test whether it learned about traffic or about its dataset:
+
+```bash
+bash data/download_unsw.sh        # about 175 MB, SHA-256 verified
+python -m src.cli cross-eval      # writes reports/CROSS_DATASET.md and a figure
+```
+
+The measured answer is that it does not transfer: detection falls from 0.9976
+in domain to 0.0003 on UNSW-NB15, because ordinary traffic there runs at roughly
+the packet rate CIC-IDS2017 associates with attacks. Details and the feature
+comparison that explains it are in [reports/CROSS_DATASET.md](reports/CROSS_DATASET.md)
+and section 6.5 of the report.
+
+**Threshold calibration.** The autoencoder threshold ships from CIC-IDS2017
+benign flows. This retunes it on the traffic actually being watched:
+
+```bash
+python -m src.cli calibrate --seconds 300 --dry-run   # report without saving
+python -m src.cli calibrate --seconds 300             # keep the new threshold
+python -m src.cli calibrate --reset                   # restore the dataset value
+```
+
+Captures that are too uniform to be a sample of normal traffic are refused, and
+flows cut off when capture stopped are excluded.
+
+**Alert explanations.** Every alert from a supervised model carries the features
+that drove it, computed by exact decision-path attribution, so an alert reads
+`DoS-Slow predicted by full/random_forest with confidence 0.97, driven by
+Bwd Packets/s=0.0, Flow Packets/s=0.111, Flow IAT Mean=10500000`. Disable with
+`NETRA_EXPLAIN_ENABLED=0`.
+
 ## Documentation
 
 | Document | Contents |
@@ -62,6 +98,7 @@ Rerun it after any retraining. Slides include speaker notes.
 | [docs/PRESENTATION_SCRIPT.md](docs/PRESENTATION_SCRIPT.md) | What to say, slide by slide, with demo cues and likely questions |
 | [docs/PACKET_TRACER_GUIDE.md](docs/PACKET_TRACER_GUIDE.md) | Cisco Packet Tracer topology build guide |
 | [reports/RESULTS.md](reports/RESULTS.md) | Full measured metrics and confusion matrices |
+| [reports/CROSS_DATASET.md](reports/CROSS_DATASET.md) | UNSW-NB15 transfer test and why it fails |
 
 ## Prerequisites
 

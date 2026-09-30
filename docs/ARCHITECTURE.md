@@ -104,6 +104,10 @@ Each rule has a 10 second cooldown per source.
 
 Weak evidence (the lite model, medium confidence, or an anomaly) must appear on 3 flows from the same source within 10 seconds before an alert is raised. Alerts are grouped per source, class and detector over a 10 second cooldown, so a flood appears as one alert with a rising flow count.
 
+**Explanations** (`src/models/explain.py`). An alert from a supervised model carries the features that produced it. For a Random Forest the predicted probability decomposes exactly into a bias term plus one contribution per feature: follow the sample from root to leaf, and attribute the change in class distribution at each step to the feature that split there. This is the Saabas decomposition, implemented directly so the container needs no extra dependency, and `tests/test_explain.py` checks it reproduces `predict_proba` to within 1e-9. Explaining one flow costs about 2.5 ms, so only flows that open a *new* alert are explained, and at most `EXPLAIN_MAX_PER_BATCH` per scoring batch, which stops a flood stalling the scoring loop. A non-tree model degrades to no explanation rather than a guess.
+
+**Threshold calibration** (`src/models/calibrate.py`). The autoencoder threshold ships from CIC-IDS2017 benign flows. `python -m src.cli calibrate` re-derives it from the deployment network's own traffic. Flows cut off when capture stops are excluded, because their rates describe the capture window rather than the traffic, and a capture whose errors are too uniform to be a sample of normal activity is refused. The dataset threshold is kept as `threshold_dataset`, so `--reset` restores it.
+
 ## 4. Response
 
 | Severity | Action | Rule |

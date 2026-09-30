@@ -25,10 +25,17 @@ isolated Docker lab against four real attack tools: every attack was detected
 within about one second and the attacking host was automatically blocked with a
 real iptables rule that expired on its own.
 
-The main negative finding is methodological. The TCP flag counters in
-CIC-IDS2017 are unreliable, and models trained on them appear accurate offline
-while failing on live traffic. Removing all twelve flag features cost little
+The main findings are negative and methodological. First, the TCP flag counters
+in CIC-IDS2017 are unreliable, and models trained on them appear accurate offline
+while failing on live traffic; removing all twelve flag features cost little
 offline accuracy and was necessary for the system to work at all on real packets.
+Second, evaluating the same model on UNSW-NB15, a dataset captured by different
+researchers on a different network, drops the detection rate from 99.76 percent
+to 0.03 percent. The feature distributions show why: ordinary UNSW-NB15 traffic
+runs at roughly the packet rate CIC-IDS2017 associates with attacks, so the
+learned boundary points the wrong way. Both failures were invisible to in-domain
+metrics, and the reported accuracy should be read as describing CIC-IDS2017
+rather than intrusion detection in general.
 
 ## 1. Introduction
 
@@ -386,6 +393,98 @@ the service as unavailable, while Netra detected it from the traffic pattern
 rather than from the victim's health. Detection did not depend on the victim
 being harmed.
 
+### 6.5 Cross-dataset evaluation on UNSW-NB15
+
+Sections 6.1 to 6.4 all measure performance on CIC-IDS2017 or on traffic
+generated in a lab built around the same assumptions. They cannot distinguish a
+model that learned about network traffic from one that learned about
+CIC-IDS2017. To separate the two, the lite model was run unchanged over
+UNSW-NB15 [2], a dataset captured by different researchers, on a different
+network, with a different flow extractor. Nothing was retrained, refitted or
+retuned: the model, the scaler and the feature code are the artifacts the live
+system loads, and only the data is new.
+
+Only the lite model can transfer. The 59 full features are CICFlowMeter's own
+output and have no counterpart in UNSW-NB15's columns, whereas the six lite
+features are generic flow statistics with direct equivalents. The feature
+arithmetic is shared code, so a flow is converted identically in training and in
+this test. All 2,059,415 UNSW-NB15 flows were scored, of which 99,643 are
+attacks across ten categories.
+
+The result is unambiguous:
+
+| Measure | CIC-IDS2017 (in domain) | UNSW-NB15 (unseen) |
+|---|---|---|
+| Detection rate | 0.9976 | **0.0003** |
+| False-positive rate | 0.00965 | 0.00061 |
+
+29 of 99,643 attack flows were flagged. Every one of the ten attack categories
+was predicted Benign for essentially all of its flows. This is not an artifact of
+the confidence threshold: at a minimum confidence of 0, meaning pure argmax with
+no threshold at all, the detection rate is 0.0004. Nor is it an artifact of the
+two datasets counting bytes differently (CIC-IDS2017 counts transport payload,
+UNSW-NB15 counts whole packets): correcting for an estimated 40 header bytes per
+packet moves the detection rate to 0.0002.
+
+The reason is visible in the feature distributions:
+
+| Feature (median) | CIC benign | CIC attack | UNSW benign | UNSW attack |
+|---|---|---|---|---|
+| flow_duration | 0.06 | 63.12 | 0.03 | 0.30 |
+| packets_per_sec | 65.53 | 0.19 | 2775.12 | 79.22 |
+| bytes_per_sec | 3762.30 | 138.07 | 304559.25 | 41890.12 |
+| mean_packet_size | 73.00 | 897.15 | 161.00 | 84.00 |
+| src_unique_dst_ports | 4.00 | 1.00 | 59.00 | 8.00 |
+| src_unique_dsts | 26.00 | 1.00 | 10.00 | 8.00 |
+
+The decisive row is `packets_per_sec`. In CIC-IDS2017 a benign flow runs at about
+66 packets per second and attacks are far slower, so the model learned that low
+rates are suspicious. In UNSW-NB15 ordinary traffic runs two orders of magnitude
+faster, and its attacks sit at 79 packets per second, which is almost exactly
+where CIC-IDS2017 puts normal traffic. The learned decision boundary is not
+merely in the wrong place; on this network it points the wrong way.
+
+Two conclusions follow, and they should be stated separately because they have
+different scope. The narrow one is that this model, as trained, does not transfer
+to this network: the 0.9976 detection rate in section 6.2 describes CIC-IDS2017,
+not intrusion detection in general. The broader one is that six flow statistics
+do not carry enough information to define "attack" independently of the network
+that produced the training data. Flow rate is a property of the link, the
+application mix and the capture conditions at least as much as of hostile
+intent. A model trained on absolute rates on one network has no principled reason
+to work on another, and here it does not.
+
+This does not invalidate the system. The signature rules, which carry the live
+demonstration, are threshold-based and network-independent by construction, and
+the autoencoder can be recalibrated against local traffic (section 6.6). It does
+invalidate any claim that the supervised component generalises, and that claim is
+therefore not made.
+
+### 6.6 Threshold calibration against local traffic
+
+The autoencoder's threshold is the 99th percentile of reconstruction error over
+CIC-IDS2017 benign flows, which describes the dataset's idea of normal rather
+than the deployment network's. `python -m src.cli calibrate` observes real
+traffic, collects reconstruction errors and sets the threshold to the chosen
+percentile of those, so the stated false-alarm rate means what it claims on the
+network actually being watched.
+
+Measured in the Docker lab over 40 seconds of ordinary web traffic (222
+completed flows): median error 0.0776, 95th percentile 0.0861, 99th percentile
+0.0904, against the dataset threshold of 0.1463. Calibrating tightens the
+threshold to 0.0904, a factor of 0.62. The dataset threshold is therefore
+substantially too tolerant for this network, and anomalies scoring between 0.09
+and 0.146 would have been missed.
+
+Two safeguards are built in, because calibration assumes the observed traffic is
+benign and an unattended threshold change is a way to blind a detector. Flows
+that were cut off when capture stopped are excluded, since their duration and
+rates describe the capture window rather than the traffic. And a capture whose
+errors are too uniform, meaning the median equals the 99th percentile or there
+are fewer than 20 distinct error values, is refused outright: that pattern
+indicates one repeated event rather than a sample of ordinary activity. The
+original dataset threshold is always retained, so `--reset` restores it.
+
 ## 7. Discussion
 
 ### 7.1 The flag-counter problem
@@ -438,10 +537,12 @@ generate many flows from one source, fully detectable.
 
 ### 7.3 Limitations
 
-- **Single dataset.** All learned components are trained and evaluated on
-  CIC-IDS2017. Generalisation to another network is not demonstrated, and given
-  Section 7.1 it should not be assumed. Cross-dataset evaluation against
-  UNSW-NB15 [2] would be the natural test.
+- **The supervised model does not generalise across networks.** This is no
+  longer a caveat but a measurement: section 6.5 shows the lite model detects
+  0.03 percent of UNSW-NB15 attacks, against 99.76 percent in domain. The
+  in-domain numbers describe CIC-IDS2017. Any deployment on another network
+  would require retraining on traffic from that network, and the six lite
+  features may be too few to support it at all.
 - **Payload-blind.** No component inspects packet contents, so WebAttack
   detection in live operation is weak (lite F1 0.2503) and encrypted traffic is
   opaque to the flow-statistic detectors.
@@ -470,26 +571,39 @@ four real attack tools, every attack was detected within about a second and
 answered with a timed, reversible firewall rule, while ordinary traffic raised no
 alert.
 
-The project's most useful result may be the negative one. An entire family of
-features in a widely used benchmark is unusable, models trained on it look
-excellent offline and fail on real packets, and only live testing revealed it.
-Intrusion detection work that reports offline metrics alone cannot rule out this
-class of error.
+The project's most useful results are the negative ones, and there are two. An
+entire family of features in a widely used benchmark is unusable: models trained
+on the TCP flag counters look excellent offline and fail on real packets, and
+only live testing revealed it. And the supervised model, which reaches a 99.76
+percent detection rate on its own benchmark, detects 0.03 percent of attacks on
+a second dataset, because it learned flow rates that are a property of the
+network it was trained on rather than of hostile behaviour.
+
+Both failures were invisible to the metrics the project was reporting up to that
+point, and both were found by evaluating the system against something other than
+its own training distribution. Intrusion detection work that reports offline
+metrics on a single benchmark cannot rule out either class of error.
 
 Future work, in order of expected value:
 
-1. **Cross-dataset evaluation** on UNSW-NB15 [2] to measure how much of the
-   reported performance is specific to CIC-IDS2017.
-2. **Payload features** for the classes that flow statistics cannot separate,
+1. **Network-invariant features.** Section 6.5 shows absolute flow rates do not
+   transfer. Features expressed relative to a host's own baseline, such as a
+   flow's rate as a multiple of that source's median rate, would be a direct
+   attempt to fix the cause rather than the symptom, and could be tested with
+   the cross-dataset harness already in place.
+2. **Training across datasets.** Fitting on CIC-IDS2017 and UNSW-NB15 together
+   and testing on a third capture would show whether the problem is this
+   dataset or the feature set.
+3. **Payload features** for the classes that flow statistics cannot separate,
    which would address the WebAttack and Bot weakness directly.
-3. **Online adaptation**, retraining or recalibrating the autoencoder threshold
-   against the deployment network's own benign traffic rather than the
-   dataset's.
-4. **Richer response**, including redirection to a honeypot, graduated rate
+4. **Automatic recalibration**, extending the manual `calibrate` command of
+   section 6.6 into a periodic background process with drift detection, so the
+   threshold tracks the network instead of being set once.
+5. **Richer response**, including redirection to a honeypot, graduated rate
    limiting before outright blocking, and enforcement through an external
    firewall API rather than local iptables, which would match the SPAN-port
    deployment model in the Packet Tracer topology.
-5. **Ensemble anomaly detection** along the lines of Kitsune [4], to test whether
+6. **Ensemble anomaly detection** along the lines of Kitsune [4], to test whether
    an ensemble of small autoencoders over feature subsets improves on the single
    network used here.
 
