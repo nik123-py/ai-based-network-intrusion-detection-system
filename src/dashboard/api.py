@@ -41,6 +41,24 @@ def create_app(engine) -> FastAPI:
     def blocks():
         return engine.responder.active()
 
+    @app.get("/api/families")
+    def families():
+        """Unknown families discovered so far, most recently seen first."""
+        if engine.families is None:
+            return []
+        return engine.families.snapshot()
+
+    @app.post("/api/families/{family_id}/promote")
+    def promote_family(family_id: str, body: dict):
+        """Name a discovered family, for example once an analyst identifies it."""
+        name = (body or {}).get("name", "")
+        try:
+            return engine.promote_family(family_id, name)
+        except KeyError:
+            return {"error": "unknown family", "id": family_id}
+        except (ValueError, RuntimeError) as e:
+            return {"error": str(e), "id": family_id}
+
     @app.post("/api/unblock-all")
     def unblock_all():
         rec = engine.responder.unblock_all()

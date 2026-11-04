@@ -83,6 +83,10 @@ def detector_label(a: dict) -> str:
         return f"Rule · {det.split(':', 1)[1]}"
     if det == "anomaly":
         return "Autoencoder"
+    if det == "openset":
+        return "Open-set"
+    if model.startswith("openset/"):
+        return "Open-set"
     if "/" in model:
         kind, name = model.split("/", 1)
         return f"ML {kind} · {MODEL_SHORT.get(name, name)}"
@@ -135,10 +139,11 @@ class EngineClient(QObject):
         except json.JSONDecodeError:
             pass
 
-    def post(self, path: str) -> None:
+    def post(self, path: str, body: dict | None = None) -> None:
         req = QNetworkRequest(QUrl(self.http_base + path))
         req.setHeader(QNetworkRequest.KnownHeaders.ContentTypeHeader, "application/json")
-        self.http.post(req, QByteArray(b"{}"))
+        payload = json.dumps(body or {}).encode()
+        self.http.post(req, QByteArray(payload))
 
 
 # ---------------------------------------------------------------------------
@@ -341,6 +346,76 @@ class AlertTable(QTableWidget):
             self.item(row, 5).setText(f"{u['confidence']:.2f}")
 
 
+class FamilyTable(QTableWidget):
+    """Unknown families the engine has discovered, with a button to name one.
+
+    This is the operator's half of the discovery loop. The engine can say "I
+    have seen this 47 times, from 3 hosts, and it is nothing I was trained on";
+    only a person can say what it is. Naming a family here makes every later
+    alert about it use that name.
+    """
+
+    COLUMNS = ["Family", "Flows", "Sources", "Nearest known", "Signature", ""]
+    promote = Signal(str, str)
+
+    def __init__(self):
+        super().__init__(0, len(self.COLUMNS))
+        self.setHorizontalHeaderLabels(self.COLUMNS)
+        self.verticalHeader().hide()
+        self.setShowGrid(False)
+        self.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        header = self.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        self.verticalHeader().setDefaultSectionSize(34)
+        self.families: list[dict] = []
+
+    def set_families(self, families: list[dict]) -> None:
+        self.families = families
+        self.setRowCount(len(families))
+        for row, f in enumerate(families):
+            named = bool(f.get("promoted_name"))
+            label = _item(f.get("label", f["id"]), STATUS["good"] if named else None)
+            label.setToolTip(f.get("description", ""))
+            nearest = f.get("nearest_class") or "nothing close"
+            if f.get("nearest_class"):
+                nearest = f"{nearest} (p={f.get('nearest_p', 0):.3f})"
+            self.setItem(row, 0, label)
+            self.setItem(row, 1, _item(str(f.get("flows", 0)), align_right=True))
+            self.setItem(row, 2, _item(str(f.get("n_sources", 0)), align_right=True))
+            self.setItem(row, 3, _item(nearest))
+            signature = _item(fingerprint_text(f.get("fingerprint", [])))
+            signature.setToolTip(f.get("description", ""))
+            self.setItem(row, 4, signature)
+            button = QPushButton("Rename" if named else "Name it...")
+            button.setObjectName("smallButton")
+            button.setMinimumWidth(76)
+            button.clicked.connect(lambda _=False, fid=f["id"]: self._ask(fid))
+            self.setCellWidget(row, 5, button)
+
+    def _ask(self, family_id: str) -> None:
+        from PySide6.QtWidgets import QInputDialog
+
+        current = next((f for f in self.families if f["id"] == family_id), {})
+        name, ok = QInputDialog.getText(
+            self, f"Name {family_id}",
+            f"{current.get('description', family_id)}\n\nWhat is this?",
+            text=current.get("promoted_name") or "")
+        if ok and name.strip():
+            self.promote.emit(family_id, name.strip())
+
+
+def fingerprint_text(fingerprint: list[dict]) -> str:
+    """The fingerprint as one short line for a table cell."""
+    parts = []
+    for f in fingerprint[:3]:
+        name = f.get("feature", "")
+        if "value" in f:
+            name = f"{name}={f['value']}"
+        parts.append(name)
+    return ", ".join(parts)
+
+
 class BlockTable(QTableWidget):
     COLUMNS = ["Address", "Action", "Reason", "Remaining", ""]
     unblock = Signal(str)
@@ -485,6 +560,15 @@ class MainWindow(QMainWindow):
         self.blocks.unblock.connect(lambda ip: self.client.post(f"/api/unblock/{ip}"))
         blocks_card.layout_.addWidget(self.blocks)
 
+        families_card = Card("Unknown families discovered")
+        self.families_hint = QLabel("")
+        self.families_hint.setObjectName("muted")
+        families_card.header.addWidget(self.families_hint)
+        self.families = FamilyTable()
+        self.families.promote.connect(
+            lambda fid, name: self.client.post(f"/api/families/{fid}/promote", {"name": name}))
+        families_card.layout_.addWidget(self.families)
+
         status_card = Card("Models and health")
         self.status_grid = QGridLayout()
         self.status_grid.setHorizontalSpacing(16)
@@ -496,8 +580,12 @@ class MainWindow(QMainWindow):
         right.addWidget(blocks_card)
         right.addWidget(status_card)
         right.setSizes([380, 240])
+        left = QSplitter(Qt.Orientation.Vertical)
+        left.addWidget(alerts_card)
+        left.addWidget(families_card)
+        left.setSizes([400, 220])
         lower = QSplitter(Qt.Orientation.Horizontal)
-        lower.addWidget(alerts_card)
+        lower.addWidget(left)
         lower.addWidget(right)
         lower.setSizes([900, 500])
 
@@ -617,14 +705,28 @@ class MainWindow(QMainWindow):
         elif kind == "blocks":
             self.blocks.set_blocks(e.get("blocks", []))
             self.tile_blocked.set(str(len(e.get("blocks", []))))
+        elif kind == "families":
+            self._set_families(e.get("families", []))
+        elif kind == "family_promoted":
+            family = e.get("family", {})
+            self.segment.setText(f"{family.get('id')} named \"{family.get('promoted_name')}\"   ")
         elif kind == "status":
             self._status = e
+            self._set_families(e.get("families", []))
             self._render_status()
             if "live" not in e.get("mode", "") and self.metric_box.currentIndex() == 0:
                 self.metric_box.setCurrentText("Flows scored per second")  # replay has no packets
         elif kind == "replay":
             seg = e.get("segment")
             self.segment.setText("" if seg in (None, "finished") else f"Replay: {seg}   ")
+
+    def _set_families(self, families: list[dict]) -> None:
+        self.families.set_families(families)
+        named = sum(1 for f in families if f.get("promoted_name"))
+        if not families:
+            self.families_hint.setText("nothing unrecognised yet")
+        else:
+            self.families_hint.setText(f"{len(families)} discovered, {named} named")
 
     def _add_alert(self, a: dict) -> None:
         if a["id"] in self._alert_attack:

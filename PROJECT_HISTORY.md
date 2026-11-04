@@ -186,18 +186,85 @@ Gotchas found while building these:
 
 Tests went from 31 to 58: `tests/test_explain.py`, `tests/test_calibrate.py`, `tests/test_unsw.py`.
 
+## Open-set recognition and unknown-family discovery (2026-11-04)
+
+Added after a review found the project architecturally generic: a classifier plus an anomaly score
+that emitted `"Anomaly (unknown)"` once per flow, with nothing in it. The ML alerts were already
+labelled and explained; the anomaly path was not, and more importantly nothing in the system could
+express "this matches none of my classes". This is now the project's distinguishing contribution.
+Full method in `docs/REPORT.md` section 4.6, measured results in `reports/OPENSET.md`.
+
+**New modules.** `src/models/openset.py` (conformal open-set test), `src/detection/discovery.py`
+(online family clustering and naming), `src/models/openset_eval.py` and
+`src/models/discovery_eval.py` (the three experiments). CLI: `openset-fit`, `openset-eval`,
+`families [--promote ID NAME]`. API: `GET /api/families`, `POST /api/families/{id}/promote`. The
+desktop app gained a "Unknown families discovered" panel with a button that names one.
+
+**What took iterations, so do not redo it from scratch:**
+
+1. **A single Gaussian per class does not work.** The first implementation used the
+   class-conditional Mahalanobis score (Lee et al. 2018). CIC benign traffic is multi-modal, so one
+   ellipsoid covers the gaps between its modes: UNSW attack flows came out at a median p-value of
+   0.52 under Benign and *nothing* was ever rejected. The k-th nearest neighbour distance (k=10) in
+   the same whitened metric separates them. Both scores are kept and both are reported, because the
+   comparison is a result about the dataset. Do not "simplify" it back to one Gaussian.
+2. **alpha = 0.01 is too strict to find novel attacks.** Measured per-class: held-out DoS-Slow is
+   rejected 0.55 of the time at alpha 0.01 and 0.98 at 0.05; PortScan 0.004 and 0.385. The default
+   is therefore 0.05, and the honest presentation is the whole operating curve, which is in the
+   report. The known-traffic rejection rate tracks alpha to three decimals, so the conformal
+   guarantee holds empirically.
+3. **Euclidean clustering shatters a novel family.** The radius has to be calibrated against the
+   known classes, which are dense (400,000 benign training flows), so it ends up far smaller than
+   the spread of a novel attack seen a few dozen times: 25 near-identical novel flows produced 24
+   families. Clustering on the unit *direction* of deviation from the benign mean, by cosine
+   distance, has no scale problem and needs no tuning. `metric="euclidean"` is still available for
+   the comparison.
+4. **A second, stricter conformal level does NOT work. Do not reintroduce it.** At alpha 0.05 the
+   benign tail enters the clusterer and is not always scattered: three marginally-unusual benign
+   flows aligned, formed a family and quarantined a healthy host. The first fix was to require
+   `DISCOVERY_MIN_FLOWS` flows rejected at a stricter level (0.01), which sounds right and is
+   wrong. Measured over the leave-one-class-out folds it reported the novel family in **1 fold of
+   7** while still admitting **164** families of ordinary traffic. The cause is structural: the
+   routing level has already conditioned on the p-value, so among flows that reached the clusterer
+   a rejected benign flow and a rejected novel flow have p-values from much the same range, and
+   novel attack flows mostly land *between* the two levels. Combining member p-values (Fisher's
+   method) inherits the same defect. What works is size: `DISCOVERY_MIN_FLOWS = 20` flows in a
+   family, chosen from the measured curve that `discovery_eval` now emits. Part of the benign tail
+   still clusters into reportable families, which is reported as a baselining cost rather than
+   hidden; the naming workflow is what resolves those.
+5. **A real bug this surfaced in the old engine.** `_raise` derived the firewall action from
+   severity at the point of use and mapped everything not "high" to a quarantine, so an autoencoder
+   alert at confidence 0.08 rate-limited a host, contradicting the engine's own docstring. The
+   policy is now one table, `ACTION_FOR_SEVERITY`, and severity "low" takes no action.
+6. **The family store cannot live in `models/`.** The NIDS container mounts it read-only, so
+   `config.FAMILIES_PATH` is `logs/unknown_families.json`. It is runtime state, not an artifact.
+
+**Performance notes.** The recogniser is brute-force k-NN against 4000 reference flows per class, so
+cost scales with reference size, not training size. The engine's accept/reject path skips p-values
+entirely (equivalent by construction, checked in tests) and tries the largest class first, which is
+5.6x faster and puts a 2000-flow batch at about 220 ms. Fitting both feature sets takes about 66 s.
+The leave-one-class-out sweep refits scaler, forest and recogniser per fold, so it takes tens of
+minutes; use `--skip-leave-one-out` when iterating.
+
+Tests went from 58 to 91: `tests/test_openset.py`, `tests/test_discovery.py`,
+`tests/test_openset_engine.py`.
+
 ## What to do next
 
 Phases 0 to 10 are complete. Remaining optional work:
 
 1. Build the Packet Tracer `.pkt` file by following `docs/PACKET_TRACER_GUIDE.md` (manual, cannot
    be generated from code).
-2. **Prose style (required if editing):** plain, direct, no em dashes, no marketing tone. Real
+2. Regenerate the slide deck (`python presentation/build_ppt.py`) if the open-set results should
+   appear in it; the builder reads `reports/*.json` and does not yet read `reports/openset.json`.
+3. **Prose style (required if editing):** plain, direct, no em dashes, no marketing tone. Real
    measured numbers only.
 
 ## Notes
 
-- Git: the repository tracks source, docs, `reports/` and the trained `models/` (31 MB), so the lab
+- Git: the repository tracks source, docs, `reports/` and the trained `models/` (41 MB, of which the
+  two open-set recognisers are 10.6 MB; that is dominated by the reference flows kept per class, so
+  `openset.MAX_REFERENCE` is the dial if it ever needs to shrink), so the lab
   runs after a clone without retraining. The CIC-IDS2017 data, `logs/` and `.venv/` are gitignored.
   Regenerate the models with `python -m src.cli train --days all` if needed.
 - This is graded coursework. Each phase was confirmed before moving to the next, and the dashboard

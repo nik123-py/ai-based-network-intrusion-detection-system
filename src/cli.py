@@ -13,6 +13,9 @@ Commands:
     demo         Scripted replay plus the desktop app in one command (no Docker needed).
     calibrate    Retune the autoencoder threshold on this network's own benign traffic.
     cross-eval   Test the trained models against a second dataset (UNSW-NB15).
+    openset-fit  Fit the open-set recogniser that lets the models say "unknown".
+    openset-eval Measure open-set recognition and unknown-family discovery.
+    families     List the unknown families discovered so far, or name one.
     unblock-all  Remove every block and quarantine rule added by Netra.
 """
 
@@ -187,6 +190,78 @@ def cmd_cross_eval(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_openset_fit(args: argparse.Namespace) -> int:
+    from src import config
+    from src.models import openset
+
+    alpha = config.OPENSET_ALPHA if args.alpha is None else args.alpha
+    for kind in args.kinds:
+        rec = openset.fit_from_splits(kind, alpha=alpha, k=args.k, score=args.score)
+        print(f"[{kind}] open-set recogniser fitted: {len(rec.classes)} classes, "
+              f"{rec.meta['n_features']} features, {rec.score_name} score, alpha {rec.alpha}")
+        print(f"         saved to {openset.artifact_path(kind)}")
+    return 0
+
+
+def cmd_openset_eval(args: argparse.Namespace) -> int:
+    from src import config
+    from src.models import discovery_eval, openset, openset_eval
+
+    if not openset.artifact_path(args.kind).exists():
+        print(f"No open-set recogniser at {openset.artifact_path(args.kind)}.\n"
+              f"Fit one with:  python -m src.cli openset-fit")
+        return 1
+    alpha = config.OPENSET_ALPHA if args.alpha is None else args.alpha
+    result = openset_eval.run(kind=args.kind, alpha=alpha, score=args.score,
+                              unsw_limit=args.limit, skip_loco=args.skip_leave_one_out)
+    openset_eval.print_summary(result)
+    discovery = None
+    if not args.skip_discovery:
+        discovery = discovery_eval.run(kind=args.kind, alpha=alpha, score=args.score,
+                                       radius_factor=args.radius_factor, metric=args.metric)
+        discovery_eval.print_summary(discovery)
+    openset_eval.write_markdown(result, discovery)
+    openset_eval.plot(result)
+    print("\nMetrics, curve and OPENSET.md written to reports/")
+    return 0
+
+
+def cmd_families(args: argparse.Namespace) -> int:
+    """Read or name the unknown families a running engine has discovered."""
+    import json
+    import urllib.error
+    import urllib.request
+
+    base = args.url.rstrip("/")
+    try:
+        if args.promote:
+            family_id, name = args.promote
+            body = json.dumps({"name": name}).encode()
+            req = urllib.request.Request(f"{base}/api/families/{family_id}/promote", data=body,
+                                         method="POST", headers={"Content-Type": "application/json"})
+        else:
+            req = urllib.request.Request(f"{base}/api/families")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            payload = json.loads(resp.read().decode())
+    except (OSError, urllib.error.URLError) as e:
+        print(f"Engine not reachable at {args.url} ({e}).")
+        return 1
+
+    if args.promote:
+        if payload.get("error"):
+            print(f"Could not name {args.promote[0]}: {payload['error']}")
+            return 1
+        print(f"{payload['id']} is now \"{payload['promoted_name']}\" ({payload['flows']} flows)")
+        return 0
+    if not payload:
+        print("No unknown families discovered yet.")
+        return 0
+    for f in payload:
+        print(f"{f['id']:<12} {f['flows']:>6} flows  {f['n_sources']:>3} src  {f['description']}")
+    print(f"\nName one with:  python -m src.cli families --promote <id> \"<name>\"")
+    return 0
+
+
 def cmd_calibrate(args: argparse.Namespace) -> int:
     from src.models import calibrate
 
@@ -295,6 +370,37 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-variant", action="store_true",
                    help="skip the header-corrected byte-accounting variant")
     p.set_defaults(func=cmd_cross_eval)
+
+    p = sub.add_parser("openset-fit", help="fit the open-set recogniser (the \"unknown\" verdict)")
+    p.add_argument("--kinds", nargs="+", default=["full", "lite"], choices=["full", "lite"],
+                   help="feature sets to fit (default: both)")
+    p.add_argument("--alpha", type=float, default=None,
+                   help="conformal significance level (default: config.OPENSET_ALPHA)")
+    p.add_argument("--k", type=int, default=10, help="neighbours used by the knn score")
+    p.add_argument("--score", choices=["knn", "gaussian"], default="knn",
+                   help="non-conformity score (default: knn)")
+    p.set_defaults(func=cmd_openset_fit)
+
+    p = sub.add_parser("openset-eval", help="measure open-set recognition and family discovery")
+    p.add_argument("--kind", choices=["full", "lite"], default="full")
+    p.add_argument("--alpha", type=float, default=None,
+                   help="conformal significance level (default: config.OPENSET_ALPHA)")
+    p.add_argument("--score", choices=["knn", "gaussian"], default="knn")
+    p.add_argument("--metric", choices=["cosine", "euclidean"], default="cosine",
+                   help="clustering metric for discovery (default: cosine)")
+    p.add_argument("--radius-factor", type=float, default=1.0,
+                   help="scale the clustering radius (1.0 = the calibrated value)")
+    p.add_argument("--limit", type=int, default=None, help="UNSW flows to score (default: all)")
+    p.add_argument("--skip-leave-one-out", action="store_true",
+                   help="skip the leave-one-class-out sweep (it refits per fold and takes minutes)")
+    p.add_argument("--skip-discovery", action="store_true", help="skip the clustering sweep")
+    p.set_defaults(func=cmd_openset_eval)
+
+    p = sub.add_parser("families", help="list or name the unknown families found by a running engine")
+    p.add_argument("--url", default="http://127.0.0.1:8000", help="engine event API base URL")
+    p.add_argument("--promote", nargs=2, metavar=("ID", "NAME"),
+                   help='give a family a real name, e.g. --promote NETRA-U001 "Slowloris variant"')
+    p.set_defaults(func=cmd_families)
 
     p = sub.add_parser("calibrate", help="retune the autoencoder threshold on this network's traffic")
     p.add_argument("--seconds", type=float, default=300.0, help="how long to observe (default 300)")

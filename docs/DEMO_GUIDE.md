@@ -151,6 +151,47 @@ docker compose exec -T attacker curl -s -o /dev/null -w '%{http_code}\n' http://
 This returns 200 after the unblock. Switch the theme to dark to show the app is a
 real native desktop application, not a web page.
 
+### Step 4b: something the models do not know (about 2 minutes)
+
+This is the part of the demo that is not a standard pipeline, so it is worth the
+two minutes. Look at the **Unknown families discovered** panel at the bottom
+left of the app.
+
+Every attack in step 3 is a class the models were trained on, so they are named
+and that panel stays quiet or holds only small families from the tail of normal
+traffic. The point to make is what happens when traffic is *not* one of those
+eight classes:
+
+- The classifiers cannot report it. `predict_proba` is a distribution over the
+  eight trained classes, so a new attack is assigned to the nearest one, which in
+  practice is Benign. Netra adds a conformal test that rejects a flow matching no
+  known class, at a cost fixed in advance: `alpha = 0.05` means exactly 5 percent
+  of known traffic is routed to the unknown path, and the measured figure on the
+  test split is 4.68 percent.
+- A rejected flow raises nothing by itself. Rejected flows are grouped into
+  families by the direction in which they deviate from normal traffic, and a
+  family is reported only once it has grown to 20 flows. That is what makes a
+  loose `alpha` affordable: scattered one-off oddities never form a family, and
+  an attack repeats.
+- Point at a family's row and read its description aloud. It names the family,
+  how many unrecognised flows it holds, how many hosts they came from, the
+  features that make it unusual with their values, and the nearest class the
+  models do know with the p-value that class gave it.
+- If asked how the size threshold was chosen, say it was measured, not guessed,
+  and that the curve behind it is in `reports/OPENSET.md`. If asked whether a
+  stricter statistical test would be better than counting flows, the honest
+  answer is that it was tried first and measured worse, because the routing
+  level has already conditioned on the p-value.
+- Click **Name it...** on a family, type something, and press OK. Later alerts
+  about that family use that name. Say plainly that this is the one step the
+  system does not attempt itself: it can establish that 47 flows from 3 hosts
+  match nothing it was trained on and describe how, but deciding what they are is
+  an analyst's judgement.
+
+If you want to show it without the lab, `python -m src.cli families` lists what a
+running engine has discovered, and `reports/OPENSET.md` has the leave-one-class-out
+experiment: each attack class removed from training entirely, then replayed.
+
 ### Step 5: the numbers (about 2 minutes)
 
 Move to the slides or `reports/RESULTS.md`. State the measured results:
@@ -242,6 +283,24 @@ flows the rules say nothing about, and the autoencoder is trained only on benign
 traffic, so it can flag a pattern that no one wrote a rule for and no label
 existed for. The demo attacks are deliberately ones the rules cover, because that
 is what makes them fire in one second in front of an audience.
+
+**What happens when an attack is not one of your eight classes?**
+That is what the open-set layer is for, and it is the project's main
+contribution. A trained classifier has no way to report an unknown class: its
+output is a distribution over the classes it was taught. Netra adds a conformal
+test whose rejection cost is fixed in advance, groups the rejected flows into
+families, names each family and describes it, and lets an analyst promote a
+family to a real name. `reports/OPENSET.md` has the experiment: each attack class
+is removed from training, scaling and calibration, and its flows are replayed. The
+closed-set model calls every flow of several of those unseen attacks Benign and
+says nothing at all.
+
+**How can you set that rejection threshold without tuning it on the attacks?**
+That is the reason for using a conformal test rather than a distance cutoff. The
+threshold is a significance level: alpha is the share of genuine known-class
+traffic the test will reject, by construction, so it is chosen from the false-alarm
+budget rather than fitted to attack data. The measured rate on held-out known
+traffic tracks the promised alpha to three decimal places.
 
 **Is the detection real, or replayed?**
 In the Docker lab it is real: scapy captures live packets, the models score real

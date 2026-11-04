@@ -2,6 +2,17 @@
 
 **NETRA: Network Threat Recognition and Automated response.** Netra is an AI-based network intrusion detection and response system. It trains machine learning models on the CIC-IDS2017 benchmark, scores live network flows with a hybrid of signature rules, supervised classifiers and an unsupervised autoencoder, and responds to detected attacks by blocking the offending source address for a limited time. The complete system, including an attack lab, runs on one laptop with Docker Desktop and no paid services.
 
+What distinguishes it from the usual arrangement of a classifier and an
+anomaly score is that **Netra can say it does not recognise something, and then
+work out what that something is.** A trained classifier is closed-set: its
+output is a distribution over the classes it was taught, so a new attack is
+forced into one of them, usually "Benign". Netra adds a conformal open-set test
+that rejects flows matching no known class at a known, bounded cost, groups the
+rejected flows into recurring families, gives each family a stable name and a
+readable fingerprint, and lets an analyst promote a family to a real name that
+every later alert then uses. The design, the method and the measured results are
+in [reports/OPENSET.md](reports/OPENSET.md).
+
 > **Safety warning.** The attack scripts in this project (nmap, hping3, slowloris, hydra) must only be run inside the isolated Docker network created by `docker-compose.yml`, against the containers in this project. Do not point them at any other host or network.
 
 ## Architecture
@@ -10,13 +21,18 @@ Netra has five layers. Packets arrive from live capture, a PCAP file or a replay
 of held-out dataset rows, and all three paths produce the same feature schema.
 
 ```
-  packets ──┬─> signature rules ──────────────┐   (syn_flood, port_scan,
-            │   fire in ~1 s, per packet      │    slow_dos, brute_force)
-            │                                 v
+  packets ──┬─> signature rules ──────────────────────────┐  (syn_flood, port_scan,
+            │   fire in ~1 s, per packet                  │   slow_dos, brute_force)
+            │                                             v
             └─> flow assembly ──> ML scoring ──> fusion ──> response ──> desktop app
                 59 CIC features    full RF        priority   timed        PySide6
                  6 lite features   lite RF        + corrob.  iptables     WebSocket
                                    autoencoder               NETRA chain
+                                        │                        ^
+                                        v                        │
+                                  open-set test ──> family clustering
+                                  conformal, alpha   stable names, fingerprints,
+                                  "none of these"    analyst can promote a name
 ```
 
 - **Ingestion** (`src/detection/sniffer.py`, `replay.py`): scapy capture, PCAP
@@ -25,11 +41,25 @@ of held-out dataset rows, and all three paths produce the same feature schema.
   bidirectional flows by 5-tuple, following CICFlowMeter conventions. Produces
   the 59 model features and the 6 lite features computable from live packets.
 - **Detection** (`src/detection/`): four packet-level signature rules, a full and
-  a lite Random Forest, and an autoencoder trained only on benign traffic.
+  a lite Random Forest, an autoencoder trained only on benign traffic, and the
+  open-set test that can reject all of them.
+- **Open-set recognition** (`src/models/openset.py`): a conformal test over
+  class-conditional k-nearest-neighbour distances. A flow is known if some class
+  accepts it at level alpha; otherwise it matches nothing that was trained, and
+  alpha *is* the share of known traffic that costs, by construction rather than
+  by tuning.
+- **Unknown-family discovery** (`src/detection/discovery.py`): rejected flows are
+  clustered online by the direction in which they deviate from normal traffic.
+  Each family keeps a stable identifier (`NETRA-U001`), a fingerprint of the
+  features that make it unusual, and the nearest class the models do know. A
+  family is reported once it has grown to a measured size, so an analyst sees one
+  named object rather than hundreds of unlabelled anomaly lines, and can give it
+  a real name in the app.
 - **Fusion** (`src/detection/engine.py`): signature hit beats high-confidence
-  supervised prediction beats lite/medium/anomaly. Weak evidence needs 3 flagged
-  flows from one source within 10 s before it alerts, which suppresses isolated
-  false positives.
+  supervised prediction beats lite/medium, then the open-set test, then the
+  autoencoder. Weak evidence needs 3 flagged flows from one source within 10 s
+  before it alerts, which suppresses isolated false positives; an unknown family
+  carries its own corroboration, because the family has to grow first.
 - **Response** (`src/response/responder.py`): high severity blocks the source
   (DROP), medium rate-limits it, low is logged only. Every rule is timed,
   reversible, and confined to a dedicated `NETRA` iptables chain.
@@ -52,6 +82,43 @@ python presentation/build_ppt.py        # writes presentation/Netra.pptx (25 sli
 
 Rerun it after any retraining. Slides include speaker notes.
 
+## Open-set recognition and unknown attacks
+
+The models know eight classes. This is about the ninth.
+
+```bash
+python -m src.cli openset-fit               # fit the recogniser (train + val splits)
+python -m src.cli openset-eval              # measure it, writes reports/OPENSET.md
+python -m src.cli families                  # what a running engine has discovered
+python -m src.cli families --promote NETRA-U001 "Slowloris variant"
+```
+
+`openset-eval` runs three experiments and writes
+[reports/OPENSET.md](reports/OPENSET.md):
+
+1. **Is the test honest?** On the test split every flow is of a known class, so
+   anything rejected is pure cost. The conformal construction promises that
+   share equals alpha, and the measurement confirms it.
+2. **Zero-day detection.** Each attack class in turn is removed from training,
+   from the feature scaling and from the calibration, and its test flows are
+   replayed. The question is not whether the system names the attack, which is
+   impossible, but whether it admits it does not recognise it, where the
+   closed-set baseline reports Benign and says nothing.
+3. **Are the families real?** The same folds with the held-out class mixed back
+   into ordinary traffic, replayed through the clusterer in arrival order, scored
+   as cluster purity and adjusted Rand index against ground truth the clusterer
+   never sees.
+
+Two configuration values matter. `NETRA_OPENSET_ALPHA` (default 0.05) decides
+what enters the clusterer; it is a conformal level, so it is not a tuned
+threshold but the exact share of known traffic that will be routed there, and it
+is set for recall because nothing it admits raises an alert by itself.
+`NETRA_DISCOVERY_MIN_FLOWS` (default 20) decides what is reported: a family has
+to grow to that size. That one *is* empirical, and the measured curve behind the
+value, including what each choice costs in families of ordinary traffic, is in
+section 3 of the report. Set `NETRA_OPENSET_ENABLED=0` to return to closed-set
+behaviour.
+
 ## Validation and tuning
 
 Three commands exercise the system beyond its own training data.
@@ -70,6 +137,14 @@ the packet rate CIC-IDS2017 associates with attacks. Details and the feature
 comparison that explains it are in [reports/CROSS_DATASET.md](reports/CROSS_DATASET.md)
 and section 6.5 of the report.
 
+The open-set layer does not rescue that detection rate, and no layer using those
+six features could: UNSW attack flows sit inside the CIC benign distribution. What
+it does change is the report. Instead of calling 99.97% of an unfamiliar network
+Benign with high confidence, the sensor reports that a large share of the traffic
+matches nothing it was trained on, which says the model needs retraining for this
+network rather than that the network is quiet. The rates are in section 4 of
+[reports/OPENSET.md](reports/OPENSET.md).
+
 **Threshold calibration.** The autoencoder threshold ships from CIC-IDS2017
 benign flows. This retunes it on the traffic actually being watched:
 
@@ -87,6 +162,12 @@ that drove it, computed by exact decision-path attribution, so an alert reads
 `DoS-Slow predicted by full/random_forest with confidence 0.97, driven by
 Bwd Packets/s=0.0, Flow Packets/s=0.111, Flow IAT Mean=10500000`. Disable with
 `NETRA_EXPLAIN_ENABLED=0`.
+
+An alert about something the models do not know is described the same way, from
+the family rather than from a class, so it reads
+`NETRA-U001: 47 unrecognised flows from 3 sources. Flow IAT Mean=10500000
+(12.4 above benign), Bwd Packets/s=0.0 (3.1 below benign). nearest known class
+DoS-Slow (p=0.004)`. Nothing in the system now emits an unlabelled anomaly.
 
 ## Documentation
 

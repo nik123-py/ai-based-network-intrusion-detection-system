@@ -1,4 +1,5 @@
-"""Hybrid detection engine: fuses signatures, supervised models and the autoencoder.
+"""Hybrid detection engine: fuses signatures, supervised models, the open-set
+test, the clusterer and the autoencoder.
 
 Fusion by priority, for each source:
   1. A signature hit raises an alert immediately (packet path, no ML needed).
@@ -6,15 +7,29 @@ Fusion by priority, for each source:
      full CICFlowMeter model is consulted first, then the lite model; the alert
      records which model produced it. Confidence >= SUPERVISED_CONFIDENCE is
      "high" (block); >= SUPERVISED_MIN_CONFIDENCE is "medium" (quarantine).
-     Anomalies are "medium" (quarantine) at confidence >= 0.5, else "low" (logged only).
-  3. Otherwise, if the autoencoder reconstruction error is above its threshold,
-     an "Anomaly (unknown)" alert is raised (quarantine).
+  3. Otherwise the open-set test is applied. The classifiers are closed-set, so
+     step 2 can only ever return one of the eight trained classes; this step is
+     what lets the engine conclude that a flow matches none of them. A rejected
+     flow is not an alert. It goes to the clusterer, which groups it with
+     earlier rejected flows, and only once a family has collected
+     DISCOVERY_MIN_FLOWS flows does it become an alert naming that family.
+  4. Otherwise, if the autoencoder reconstruction error is above its threshold,
+     the flow goes to the same clusterer by the other route, and its per-feature
+     reconstruction errors become the family's fingerprint.
+
+Steps 3 and 4 both produce an alert named after a family (``NETRA-U001``, or
+whatever an operator has promoted it to) and described by the features that make
+it unusual. Neither can produce the old "Anomaly (unknown)" with nothing in it.
 
 Signature hits and high-confidence predictions of the full model act on a single
-flow. Weaker evidence (lite model, medium confidence, anomaly) must be seen on at
-least CORROBORATION_FLOWS flows from the same source within
-CORROBORATION_WINDOW_S before an alert is raised, which suppresses isolated
-false positives on benign hosts.
+flow. Weaker evidence (lite model, medium confidence) must be seen on at least
+CORROBORATION_FLOWS flows from the same source within CORROBORATION_WINDOW_S
+before an alert is raised, which suppresses isolated false positives on benign
+hosts. Unknown families carry their own corroboration: the family has to grow.
+
+Response is decided by an explicit policy (``ACTION_FOR_SEVERITY``) rather than
+being inferred at the point of use, so what the engine does about each class of
+evidence can be read in one place and changed in one place.
 
 Alerts are aggregated per (source, attack, detector) over a cooldown window, so a
 flood of thousands of flows appears as one alert whose ``count`` keeps rising.
@@ -48,7 +63,12 @@ ALERT_COOLDOWN_S = 10.0
 # Weak detections need this many flagged flows from one source within the window.
 CORROBORATION_FLOWS = 3
 CORROBORATION_WINDOW_S = 10.0
+# Fallback label for a flow that matched nothing and could not be clustered,
+# which happens only when the clusterer is disabled or unavailable.
 ANOMALY_LABEL = "Anomaly (unknown)"
+# What the engine does about each severity. "low" is recorded and shown but
+# touches no firewall rule.
+ACTION_FOR_SEVERITY = {"high": "block", "medium": "quarantine", "low": None}
 
 
 class EventBus:
@@ -119,6 +139,30 @@ class Models:
             self.status["autoencoder"] = f"loaded (threshold {self.autoencoder.threshold:.4f})"
         except FileNotFoundError as e:
             self.status["autoencoder"] = f"missing ({e.filename})"
+
+        # The open-set recogniser. Which feature set it uses follows the
+        # classifier that is actually loaded, because its reference flows and
+        # calibration are tied to that feature space.
+        self.openset = None
+        self.openset_kind = None
+        if config.OPENSET_ENABLED:
+            wanted = [config.OPENSET_KIND] + [k for k in ("full", "lite") if k != config.OPENSET_KIND]
+            for kind in wanted:
+                if (kind == "full" and self.full is None) or (kind == "lite" and self.lite is None):
+                    continue
+                try:
+                    from src.models.openset import OpenSetRecognizer
+
+                    self.openset = OpenSetRecognizer.load(kind)
+                    self.openset.alpha = config.OPENSET_ALPHA
+                    self.openset_kind = kind
+                    self.status["openset"] = (f"loaded ({kind}, {self.openset.score_name} score, "
+                                              f"alpha {self.openset.alpha})")
+                    break
+                except FileNotFoundError as e:
+                    self.status["openset"] = f"missing ({e.filename})"
+        else:
+            self.status["openset"] = "disabled"
         for model in (self.full, self.lite):
             if model is not None and hasattr(model, "n_jobs"):
                 model.n_jobs = 1  # small live batches: threads cost more than they save
@@ -151,6 +195,18 @@ class DetectionEngine:
         self.responder = responder or Responder()
         self.responder.listeners.append(self._on_action)
         self.signatures = SignatureEngine()
+        self.families = None
+        if config.DISCOVERY_ENABLED and self.models.openset is not None:
+            from src.detection.discovery import FamilyTracker
+
+            self.families = FamilyTracker(self.models.openset, kind=self.models.openset_kind)
+            self.models.status["discovery"] = (
+                f"active (radius {self.families.radius:.2f}, "
+                f"{config.DISCOVERY_MIN_FLOWS} flows to report)")
+        elif not config.DISCOVERY_ENABLED:
+            self.models.status["discovery"] = "disabled (open-set routing inactive without it)"
+        else:
+            self.models.status["discovery"] = "unavailable (no open-set recogniser)"
         self.mode = mode
         self.started = time.time()
         self._ids = itertools.count(1)
@@ -200,18 +256,94 @@ class DetectionEngine:
             X_lite = m.lite_scaler.transform(raw_lite).astype(np.float32)
             proba = m.lite.predict_proba(X_lite)
             self._apply_supervised(verdicts, proba, m.lite_name)
+        # Open-set test on whatever the classifiers left as benign. This is the
+        # only step that can conclude "none of the trained classes", so it runs
+        # before the autoencoder and feeds the same clusterer.
+        # Without a clusterer there is nowhere to route a rejected flow and
+        # nothing to name it, so the test is skipped rather than producing an
+        # unnamed verdict the alert path cannot describe.
+        if m.openset is not None and self.families is not None:
+            X_os, raw_os = (X_full, raw_full) if m.openset_kind == "full" else (X_lite, raw_lite)
+            if X_os is not None:
+                undecided = [i for i, v in enumerate(verdicts) if v["detector"] is None]
+                if undecided:
+                    rows = X_os[undecided]
+                    rejected = ~m.openset.known(rows, alpha=config.OPENSET_ALPHA)
+                    for i, is_rejected in zip(undecided, rejected):
+                        if is_rejected:
+                            verdicts[i].update(detector="openset", model=f"openset/{m.openset_kind}",
+                                               confidence=0.0)
+                            verdicts[i]["_os_row"] = X_os[i]
+                            verdicts[i]["_raw_row"] = raw_os[i] if raw_os is not None else None
         if m.autoencoder is not None and X_full is not None:
             err = m.autoencoder.score(X_full)
-            for v, e in zip(verdicts, err):
+            for i, (v, e) in enumerate(zip(verdicts, err)):
                 v["ae_error"] = float(e)
                 if v["detector"] is None and e > m.autoencoder.threshold:
                     # 0 at the threshold, 0.5 at twice the threshold, 0.9 at ten times.
                     v.update(attack=ANOMALY_LABEL, detector="anomaly", model="autoencoder",
                              confidence=float(min(0.99, 1.0 - m.autoencoder.threshold / e)))
+                    v["_ae_errors"] = m.autoencoder.errors_per_feature(X_full[i:i + 1])[0]
+                    # The autoencoder works in the full feature space, so it can
+                    # only reach the clusterer when the recogniser does too.
+                    # With a lite-only recogniser this falls back to the plain
+                    # anomaly alert, which is logged and takes no action.
+                    if m.openset is not None and m.openset_kind == "full":
+                        v["_os_row"] = X_full[i]
+                        v["_raw_row"] = raw_full[i] if raw_full is not None else None
+        if self.families is not None:
+            self._cluster(flows, verdicts)
         if config.EXPLAIN_ENABLED:
             self._explain(flows, verdicts, {m.full_name: (X_full, raw_full),
                                             m.lite_name: (X_lite, raw_lite)})
+        # Feature rows are carried between the steps above but are not part of a
+        # verdict, so they do not leave this method.
+        for v in verdicts:
+            for key in ("_os_row", "_raw_row", "_ae_errors"):
+                v.pop(key, None)
         return verdicts
+
+    def _cluster(self, flows, verdicts) -> None:
+        """Send every unrecognised flow to the clusterer and take its family.
+
+        The flow's verdict is rewritten to name the family, so from here on it
+        travels through the engine like any other verdict. The full p-value row
+        is computed here rather than during scoring because only the rejected
+        flows need it, and they are a small minority.
+        """
+        pending = [i for i, v in enumerate(verdicts)
+                   if v["detector"] in ("openset", "anomaly") and v.get("_os_row") is not None]
+        if not pending:
+            return
+        rows = np.vstack([verdicts[i]["_os_row"] for i in pending])
+        try:
+            p = self.models.openset.p_values(rows)
+        except Exception:
+            log.debug("open-set p-values failed", exc_info=True)
+            p = [None] * len(pending)
+        for n, i in enumerate(pending):
+            v, flow = verdicts[i], flows[i]
+            raw = v.get("_raw_row")
+            feature_names = (self.models.features if self.models.openset_kind == "full"
+                             else self.models.lite_features)
+            try:
+                family = self.families.observe(
+                    v["_os_row"], raw=dict(zip(feature_names, raw)) if raw is not None else None,
+                    src=flow.src, dst=flow.dst, dport=flow.dport,
+                    route=v["detector"], p_values=p[n], ae_errors=v.get("_ae_errors"))
+            except Exception:
+                log.debug("clustering failed for flow %d", i, exc_info=True)
+                continue
+            v["family"] = family
+            v["attack"] = family["label"]
+            v["description"] = family["description"]
+            # The family decides: it needs enough flows rejected at the alert
+            # level, not merely routed to the clusterer.
+            v["reportable"] = bool(family["alertable"])
+            if v["detector"] == "openset":
+                # Confidence here is the strength of the rejection, not of a
+                # class prediction: 1 - the best p-value any known class gave.
+                v["confidence"] = round(1.0 - float(family["nearest_p"]), 3)
 
     def _explain(self, flows, verdicts, matrices) -> None:
         """Attach feature attributions to verdicts that will open a new alert.
@@ -303,11 +435,15 @@ class DetectionEngine:
         return len(q) >= CORROBORATION_FLOWS
 
     def _raise_from_flow(self, flow: FlowRecord, v: dict) -> None:
+        if v.get("family") is not None:
+            self._raise_from_family(flow, v)
+            return
         if not self._corroborated(flow, v):
             return
         if v["detector"] == "anomaly":
-            # Barely above threshold: record it but take no firewall action.
-            severity = "medium" if v["confidence"] >= 0.5 else "low"
+            # No clusterer available, so this is the old bare anomaly: there is
+            # nothing to name it with, and nothing to act on either.
+            severity = "low"
             desc = (f"Unusual flow: reconstruction error {v['ae_error']:.3f} above threshold "
                     f"{self.models.autoencoder.threshold:.3f}")
         else:
@@ -322,8 +458,33 @@ class DetectionEngine:
                     evidence={"packets": flow.n_packets, "bytes": flow.n_bytes},
                     explain=v.get("explain"))
 
+    def _raise_from_family(self, flow: FlowRecord, v: dict) -> None:
+        """Alert on an unknown family, once it has repeated enough to be real.
+
+        The family's own flow count is the corroboration, so the per-source
+        window used for the other weak detectors does not apply: a novel attack
+        spread over several sources should still be reported as one family, and
+        a one-off flow from the benign tail should not be reported at all.
+        """
+        family = v["family"]
+        if not v.get("reportable"):
+            return
+        severity = "medium" if config.DISCOVERY_ACTION != "none" else "low"
+        self._raise(src=flow.src, dst=flow.dst, dport=flow.dport, attack=family["label"],
+                    confidence=v["confidence"], detector=v["detector"],
+                    model=v["model"] or "discovery", description=family["description"],
+                    severity=severity,
+                    evidence={"packets": flow.n_packets, "bytes": flow.n_bytes,
+                              "family_flows": family["flows"],
+                              "family_sources": family["n_sources"],
+                              "nearest_class": family["nearest_class"],
+                              "nearest_p": family["nearest_p"],
+                              "best_p": family["best_p"]},
+                    explain=family["fingerprint"], family=family["id"],
+                    action_kind=None if config.DISCOVERY_ACTION == "none" else config.DISCOVERY_ACTION)
+
     def _raise(self, src, dst, dport, attack, confidence, detector, model, description, severity,
-               evidence, explain=None):
+               evidence, explain=None, family=None, action_kind="by-severity"):
         now = time.time()
         key = (src, attack, detector.split(":")[0])
         with self._lock:
@@ -342,11 +503,12 @@ class DetectionEngine:
                 "confidence": round(float(confidence), 3), "detector": detector, "model": model,
                 "severity": severity, "description": description, "evidence": evidence,
                 "explain": explain or [], "count": 1, "action": "pending",
+                "family": family,
             }
             self._open_alerts[key] = alert
             self.totals["alerts"] += 1
         # Respond outside the lock (firewall commands can be slow).
-        kind = {"high": "block", "medium": "quarantine"}.get(severity)
+        kind = ACTION_FOR_SEVERITY.get(severity) if action_kind == "by-severity" else action_kind
         if kind is None:
             alert["action"] = "logged"
         else:
@@ -381,6 +543,8 @@ class DetectionEngine:
                 "class_counts": dict(self.class_counts), "flows_dropped": self.flows_dropped,
             })
             self.bus.publish({"type": "blocks", "blocks": self.responder.active()})
+            if self.families is not None:
+                self.bus.publish({"type": "families", "families": self.families.snapshot()})
 
     def status(self) -> dict:
         importance = []
@@ -391,11 +555,28 @@ class DetectionEngine:
         return {"type": "status", "mode": self.mode, "started": self.started, "models": self.models.status,
                 "classes": self.models.classes, "firewall_backend": self.responder.backend,
                 "response_enabled": self.responder.enabled, "feature_importance": importance,
+                "families": self.families.snapshot() if self.families is not None else [],
                 "thresholds": {"supervised_high": config.SUPERVISED_CONFIDENCE,
                                "supervised_min": config.SUPERVISED_MIN_CONFIDENCE,
                                "syn_rate": config.SYN_RATE_THRESHOLD,
                                "portscan_ports": config.PORTSCAN_PORT_THRESHOLD,
-                               "block_seconds": config.BLOCK_DURATION_S}}
+                               "block_seconds": config.BLOCK_DURATION_S,
+                               "openset_alpha": config.OPENSET_ALPHA,
+                               "discovery_min_flows": config.DISCOVERY_MIN_FLOWS}}
+
+    def promote_family(self, family_id: str, name: str) -> dict:
+        """Give a discovered family a real name and announce it.
+
+        This is the operator's half of the loop: Netra finds and groups
+        something it has no name for, a person identifies it, and the name
+        sticks to every later alert about that family.
+        """
+        if self.families is None:
+            raise RuntimeError("discovery is not enabled")
+        family = self.families.promote(family_id, name)
+        self.bus.publish({"type": "family_promoted", "family": family})
+        self.bus.publish({"type": "families", "families": self.families.snapshot()})
+        return family
 
     # -- lifecycle ------------------------------------------------------------
     def start(self) -> None:

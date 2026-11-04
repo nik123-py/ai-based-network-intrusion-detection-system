@@ -1,0 +1,597 @@
+{
+  "alpha": 0.05,
+  "score": "knn",
+  "kind": "full",
+  "known_rejection": {
+    "kind": "full",
+    "alpha": 0.05,
+    "test_flows": 329392,
+    "scores": {
+      "knn": {
+        "rejection_rate": 0.046837810268616116,
+        "within_alpha": true,
+        "seconds": 35.7,
+        "per_class": {
+          "Benign": 0.049452459897840306,
+          "Bot": 0.0,
+          "BruteForce": 0.0014566642388929353,
+          "DDoS": 0.043903963335242956,
+          "DoS": 0.024776826380032792,
+          "DoS-Slow": 0.05849056603773585,
+          "PortScan": 0.04316546762589928,
+          "WebAttack": 0.006230529595015576
+        }
+      },
+      "gaussian": {
+        "rejection_rate": 0.04606062078010395,
+        "within_alpha": true,
+        "seconds": 4.6,
+        "per_class": {
+          "Benign": 0.04954207366251456,
+          "Bot": 0.028708133971291867,
+          "BruteForce": 0.0,
+          "DDoS": 0.042289464090411955,
+          "DoS": 0.01617781016578612,
+          "DoS-Slow": 0.04905660377358491,
+          "PortScan": 0.03597122302158273,
+          "WebAttack": 0.003115264797507788
+        }
+      }
+    }
+  },
+  "leave_one_class_out": {
+    "kind": "full",
+    "alpha": 0.05,
+    "score": "knn",
+    "folds": [
+      {
+        "held_out": "Bot",
+        "novel_flows": 209,
+        "novelty_auc": 0.7598207655502393,
+        "unknown_rate": 0.009569377990430622,
+        "closed_set_called_benign": 1.0,
+        "closed_set_flagged_as_attack": 0.0,
+        "surfaced_rate": 0.009569377990430622,
+        "silent_before": 1.0,
+        "silent_after": 0.9904306220095693,
+        "absorbed_into": [
+          {
+            "class": "Benign",
+            "share": 1.0
+          }
+        ],
+        "known_flows_sampled": 25000,
+        "known_rejection_rate": 0.04608,
+        "alpha_curve": [
+          {
+            "alpha": 0.01,
+            "unknown_rate": 0.0,
+            "known_rejection_rate": 0.00828
+          },
+          {
+            "alpha": 0.02,
+            "unknown_rate": 0.0,
+            "known_rejection_rate": 0.0172
+          },
+          {
+            "alpha": 0.05,
+            "unknown_rate": 0.009569377990430622,
+            "known_rejection_rate": 0.04608
+          },
+          {
+            "alpha": 0.1,
+            "unknown_rate": 0.37799043062200954,
+            "known_rejection_rate": 0.0936
+          },
+          {
+            "alpha": 0.25,
+            "unknown_rate": 0.3923444976076555,
+            "known_rejection_rate": 0.2452
+          },
+          {
+            "alpha": 0.5,
+            "unknown_rate": 0.937799043062201,
+            "known_rejection_rate": 0.49928
+          }
+        ],
+        "fit_seconds": 77.9
+      },
+      {
+        "held_out": "BruteForce",
+        "novel_flows": 1373,
+        "novelty_auc": 0.8659614129643117,
+        "unknown_rate": 0.20611798980335033,
+        "closed_set_called_benign": 1.0,
+        "closed_set_flagged_as_attack": 0.0,
+        "surfaced_rate": 0.20611798980335033,
+        "silent_before": 1.0,
+        "silent_after": 0.7938820101966497,
+        "absorbed_into": [
+          {
+            "class": "Benign",
+            "share": 1.0
+          }
+        ],
+        "known_flows_sampled": 25000,
+        "known_rejection_rate": 0.0406,
+        "alpha_curve": [
+          {
+            "alpha": 0.01,
+            "unknown_rate": 0.0,
+            "known_rejection_rate": 0.00768
+          },
+          {
+            "alpha": 0.02,
+            "unknown_rate": 0.0,
+            "known_rejection_rate": 0.01632
+          },
+          {
+            "alpha": 0.05,
+            "unknown_rate": 0.20611798980335033,
+            "known_rejection_rate": 0.0406
+          },
+          {
+            "alpha": 0.1,
+            "unknown_rate": 0.6489439184268027,
+            "known_rejection_rate": 0.08936
+          },
+          {
+            "alpha": 0.25,
+            "unknown_rate": 0.7144938091769847,
+            "known_rejection_rate": 0.24376
+          },
+          {
+            "alpha": 0.5,
+            "unknown_rate": 0.9759650400582666,
+            "known_rejection_rate": 0.49816
+          }
+        ],
+        "fit_seconds": 80.4
+      },
+      {
+        "held_out": "DDoS",
+        "novel_flows": 19201,
+        "novelty_auc": 0.9660945554919015,
+        "unknown_rate": 0.9103171709806781,
+        "closed_set_called_benign": 0.3686787146502786,
+        "closed_set_flagged_as_attack": 0.44961199937503254,
+        "surfaced_rate": 0.9124524764335191,
+        "silent_before": 0.3686787146502786,
+        "silent_after": 0.0875475235664809,
+        "absorbed_into": [
+          {
+            "class": "PortScan",
+            "share": 0.6241
+          },
+          {
+            "class": "Benign",
+            "share": 0.3687
+          },
+          {
+            "class": "DoS",
+            "share": 0.0072
+          }
+        ],
+        "known_flows_sampled": 25000,
+        "known_rejection_rate": 0.05108,
+        "alpha_curve": [
+          {
+            "alpha": 0.01,
+            "unknown_rate": 0.11884797666788188,
+            "known_rejection_rate": 0.01012
+          },
+          {
+            "alpha": 0.02,
+            "unknown_rate": 0.3118066767355867,
+            "known_rejection_rate": 0.02124
+          },
+          {
+            "alpha": 0.05,
+            "unknown_rate": 0.9103171709806781,
+            "known_rejection_rate": 0.05108
+          },
+          {
+            "alpha": 0.1,
+            "unknown_rate": 0.994062809228686,
+            "known_rejection_rate": 0.09812
+          },
+          {
+            "alpha": 0.25,
+            "unknown_rate": 0.99947919379199,
+            "known_rejection_rate": 0.24968
+          },
+          {
+            "alpha": 0.5,
+            "unknown_rate": 0.999895838758398,
+            "known_rejection_rate": 0.49776
+          }
+        ],
+        "fit_seconds": 66.7
+      },
+      {
+        "held_out": "DoS",
+        "novel_flows": 27445,
+        "novelty_auc": 0.9058166514847877,
+        "unknown_rate": 0.19096374567316451,
+        "closed_set_called_benign": 0.9891419202040445,
+        "closed_set_flagged_as_attack": 0.008416833667334669,
+        "surfaced_rate": 0.1993441428311168,
+        "silent_before": 0.9891419202040445,
+        "silent_after": 0.8006558571688832,
+        "absorbed_into": [
+          {
+            "class": "Benign",
+            "share": 0.9891
+          },
+          {
+            "class": "PortScan",
+            "share": 0.0098
+          },
+          {
+            "class": "DDoS",
+            "share": 0.0005
+          }
+        ],
+        "known_flows_sampled": 25000,
+        "known_rejection_rate": 0.04812,
+        "alpha_curve": [
+          {
+            "alpha": 0.01,
+            "unknown_rate": 0.0005101111313536163,
+            "known_rejection_rate": 0.00852
+          },
+          {
+            "alpha": 0.02,
+            "unknown_rate": 0.04907997813809437,
+            "known_rejection_rate": 0.01784
+          },
+          {
+            "alpha": 0.05,
+            "unknown_rate": 0.19096374567316451,
+            "known_rejection_rate": 0.04812
+          },
+          {
+            "alpha": 0.1,
+            "unknown_rate": 0.8305702313718346,
+            "known_rejection_rate": 0.097
+          },
+          {
+            "alpha": 0.25,
+            "unknown_rate": 0.9091637821096739,
+            "known_rejection_rate": 0.24924
+          },
+          {
+            "alpha": 0.5,
+            "unknown_rate": 0.993732920386227,
+            "known_rejection_rate": 0.49756
+          }
+        ],
+        "fit_seconds": 62.0
+      },
+      {
+        "held_out": "DoS-Slow",
+        "novel_flows": 1590,
+        "novelty_auc": 0.984124213836478,
+        "unknown_rate": 0.9817610062893082,
+        "closed_set_called_benign": 0.8320754716981132,
+        "closed_set_flagged_as_attack": 0.16477987421383647,
+        "surfaced_rate": 0.9836477987421384,
+        "silent_before": 0.8320754716981132,
+        "silent_after": 0.016352201257861635,
+        "absorbed_into": [
+          {
+            "class": "Benign",
+            "share": 0.8321
+          },
+          {
+            "class": "DoS",
+            "share": 0.1673
+          },
+          {
+            "class": "WebAttack",
+            "share": 0.0006
+          }
+        ],
+        "known_flows_sampled": 25000,
+        "known_rejection_rate": 0.04724,
+        "alpha_curve": [
+          {
+            "alpha": 0.01,
+            "unknown_rate": 0.549685534591195,
+            "known_rejection_rate": 0.00812
+          },
+          {
+            "alpha": 0.02,
+            "unknown_rate": 0.7459119496855345,
+            "known_rejection_rate": 0.01668
+          },
+          {
+            "alpha": 0.05,
+            "unknown_rate": 0.9817610062893082,
+            "known_rejection_rate": 0.04724
+          },
+          {
+            "alpha": 0.1,
+            "unknown_rate": 0.9937106918238994,
+            "known_rejection_rate": 0.0958
+          },
+          {
+            "alpha": 0.25,
+            "unknown_rate": 0.9974842767295597,
+            "known_rejection_rate": 0.2458
+          },
+          {
+            "alpha": 0.5,
+            "unknown_rate": 0.9987421383647799,
+            "known_rejection_rate": 0.49576
+          }
+        ],
+        "fit_seconds": 74.4
+      },
+      {
+        "held_out": "PortScan",
+        "novel_flows": 278,
+        "novelty_auc": 0.8710261870503597,
+        "unknown_rate": 0.38489208633093525,
+        "closed_set_called_benign": 0.935251798561151,
+        "closed_set_flagged_as_attack": 0.050359712230215826,
+        "surfaced_rate": 0.39928057553956836,
+        "silent_before": 0.935251798561151,
+        "silent_after": 0.6007194244604317,
+        "absorbed_into": [
+          {
+            "class": "Benign",
+            "share": 0.9353
+          },
+          {
+            "class": "DDoS",
+            "share": 0.0504
+          },
+          {
+            "class": "DoS",
+            "share": 0.0108
+          }
+        ],
+        "known_flows_sampled": 25000,
+        "known_rejection_rate": 0.0458,
+        "alpha_curve": [
+          {
+            "alpha": 0.01,
+            "unknown_rate": 0.0035971223021582736,
+            "known_rejection_rate": 0.00736
+          },
+          {
+            "alpha": 0.02,
+            "unknown_rate": 0.17985611510791366,
+            "known_rejection_rate": 0.01688
+          },
+          {
+            "alpha": 0.05,
+            "unknown_rate": 0.38489208633093525,
+            "known_rejection_rate": 0.0458
+          },
+          {
+            "alpha": 0.1,
+            "unknown_rate": 0.4172661870503597,
+            "known_rejection_rate": 0.09428
+          },
+          {
+            "alpha": 0.25,
+            "unknown_rate": 0.9280575539568345,
+            "known_rejection_rate": 0.24028
+          },
+          {
+            "alpha": 0.5,
+            "unknown_rate": 0.9856115107913669,
+            "known_rejection_rate": 0.48748
+          }
+        ],
+        "fit_seconds": 77.1
+      },
+      {
+        "held_out": "WebAttack",
+        "novel_flows": 321,
+        "novelty_auc": 0.1488476635514019,
+        "unknown_rate": 0.04984423676012461,
+        "closed_set_called_benign": 0.9314641744548287,
+        "closed_set_flagged_as_attack": 0.006230529595015576,
+        "surfaced_rate": 0.056074766355140186,
+        "silent_before": 0.9314641744548287,
+        "silent_after": 0.9439252336448598,
+        "absorbed_into": [
+          {
+            "class": "Benign",
+            "share": 0.9315
+          },
+          {
+            "class": "PortScan",
+            "share": 0.0498
+          },
+          {
+            "class": "DoS-Slow",
+            "share": 0.0156
+          }
+        ],
+        "known_flows_sampled": 25000,
+        "known_rejection_rate": 0.04696,
+        "alpha_curve": [
+          {
+            "alpha": 0.01,
+            "unknown_rate": 0.0,
+            "known_rejection_rate": 0.00916
+          },
+          {
+            "alpha": 0.02,
+            "unknown_rate": 0.0,
+            "known_rejection_rate": 0.0182
+          },
+          {
+            "alpha": 0.05,
+            "unknown_rate": 0.04984423676012461,
+            "known_rejection_rate": 0.04696
+          },
+          {
+            "alpha": 0.1,
+            "unknown_rate": 0.04984423676012461,
+            "known_rejection_rate": 0.09464
+          },
+          {
+            "alpha": 0.25,
+            "unknown_rate": 0.056074766355140186,
+            "known_rejection_rate": 0.24544
+          },
+          {
+            "alpha": 0.5,
+            "unknown_rate": 0.09657320872274143,
+            "known_rejection_rate": 0.49308
+          }
+        ],
+        "fit_seconds": 77.3
+      }
+    ],
+    "totals": {
+      "mean_novelty_auc": 0.7859559214184972,
+      "mean_unknown_rate": 0.390495087689713,
+      "mean_closed_set_called_benign": 0.8652302970812024,
+      "mean_surfaced_rate": 0.39521244681360906,
+      "mean_known_rejection_rate": 0.046554285714285715,
+      "folds_where_closed_set_silent": 6,
+      "folds_where_open_set_surfaces": 2,
+      "mean_curve": [
+        {
+          "alpha": 0.01,
+          "unknown_rate": 0.09609153495608411,
+          "known_rejection_rate": 0.008462857142857143
+        },
+        {
+          "alpha": 0.02,
+          "unknown_rate": 0.18380781709530417,
+          "known_rejection_rate": 0.017765714285714284
+        },
+        {
+          "alpha": 0.05,
+          "unknown_rate": 0.390495087689713,
+          "known_rejection_rate": 0.046554285714285715
+        },
+        {
+          "alpha": 0.1,
+          "unknown_rate": 0.6160555007548166,
+          "known_rejection_rate": 0.09468571428571429
+        },
+        {
+          "alpha": 0.25,
+          "unknown_rate": 0.7138711256754056,
+          "known_rejection_rate": 0.2456285714285714
+        },
+        {
+          "alpha": 0.5,
+          "unknown_rate": 0.8554742428777116,
+          "known_rejection_rate": 0.4955828571428572
+        }
+      ]
+    }
+  },
+  "domain_shift": {
+    "available": true,
+    "alpha": 0.05,
+    "scored_flows": 500000,
+    "scores": {
+      "knn": {
+        "unknown_rate": 0.9509,
+        "unknown_rate_attacks": 0.041112200588317695,
+        "unknown_rate_normal": 0.9776435903665059,
+        "seconds": 215.3,
+        "per_category": {
+          "analysis": {
+            "flows": 301,
+            "unknown_rate": 0.013289036544850499
+          },
+          "backdoor": {
+            "flows": 299,
+            "unknown_rate": 0.03678929765886288
+          },
+          "dos": {
+            "flows": 825,
+            "unknown_rate": 0.05090909090909091
+          },
+          "exploits": {
+            "flows": 4042,
+            "unknown_rate": 0.05492330529440871
+          },
+          "fuzzers": {
+            "flows": 3991,
+            "unknown_rate": 0.05487346529691806
+          },
+          "generic": {
+            "flows": 2833,
+            "unknown_rate": 0.014119308153900459
+          },
+          "normal": {
+            "flows": 485722,
+            "unknown_rate": 0.9776435903665059
+          },
+          "reconnaissance": {
+            "flows": 1740,
+            "unknown_rate": 0.021839080459770115
+          },
+          "shellcode": {
+            "flows": 223,
+            "unknown_rate": 0.04484304932735426
+          },
+          "worms": {
+            "flows": 24,
+            "unknown_rate": 0.041666666666666664
+          }
+        }
+      },
+      "gaussian": {
+        "unknown_rate": 0.002218,
+        "unknown_rate_attacks": 0.001470794228883597,
+        "unknown_rate_normal": 0.0022399644240944407,
+        "seconds": 0.2,
+        "per_category": {
+          "analysis": {
+            "flows": 301,
+            "unknown_rate": 0.0
+          },
+          "backdoor": {
+            "flows": 299,
+            "unknown_rate": 0.0
+          },
+          "dos": {
+            "flows": 825,
+            "unknown_rate": 0.0012121212121212121
+          },
+          "exploits": {
+            "flows": 4042,
+            "unknown_rate": 0.0009896091044037606
+          },
+          "fuzzers": {
+            "flows": 3991,
+            "unknown_rate": 0.002756201453269857
+          },
+          "generic": {
+            "flows": 2833,
+            "unknown_rate": 0.0
+          },
+          "normal": {
+            "flows": 485722,
+            "unknown_rate": 0.0022399644240944407
+          },
+          "reconnaissance": {
+            "flows": 1740,
+            "unknown_rate": 0.0017241379310344827
+          },
+          "shellcode": {
+            "flows": 223,
+            "unknown_rate": 0.008968609865470852
+          },
+          "worms": {
+            "flows": 24,
+            "unknown_rate": 0.0
+          }
+        }
+      }
+    }
+  }
+}

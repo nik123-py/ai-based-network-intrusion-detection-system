@@ -177,6 +177,41 @@ SUPERVISED_MIN_CONFIDENCE = _env_float("SUPERVISED_MIN_CONFIDENCE", 0.60)
 AE_THRESHOLD_PERCENTILE = 99.0  # percentile of benign validation reconstruction error
 
 # ---------------------------------------------------------------------------
+# Open-set recognition and unknown-family discovery
+# ---------------------------------------------------------------------------
+# The classifiers are closed-set: every flow is forced into one of the eight
+# trained classes. The open-set test (src/models/openset.py) adds the missing
+# verdict, "this matches nothing I was trained on", and routes those flows to
+# the clusterer (src/detection/discovery.py), which groups and names them.
+OPENSET_ENABLED = _env("OPENSET_ENABLED", "1") == "1"
+# Conformal significance level. By construction this is the share of genuine
+# known-class traffic routed to the unknown path, so it is a known, bounded cost
+# rather than a tuned threshold. It is set for recall of novel traffic because a
+# rejected flow raises nothing by itself: an alert needs a family to form.
+# reports/OPENSET.md has the measured curve behind this value.
+OPENSET_ALPHA = _env_float("OPENSET_ALPHA", 0.05)
+# Which feature set the open-set test uses when both are available.
+OPENSET_KIND = _env("OPENSET_KIND", "full")
+DISCOVERY_ENABLED = _env("DISCOVERY_ENABLED", "1") == "1"
+# Flows a family must collect before it is reported. This is what pays for a
+# loose OPENSET_ALPHA: the routing level is set for recall, and a family only
+# reaches an operator once it has grown, which the tail of normal traffic does
+# not do. The value comes from the measured curve in reports/OPENSET.md, which
+# reports, for each threshold, how many of the held-out novel families were
+# reported and how many reported families were ordinary traffic.
+#
+# 50 is read off that curve. Over the seven leave-one-class-out folds it finds
+# the novel family in 5 of 7, which is the same as 20 and 30 flows do, while
+# reporting 16 families of ordinary traffic instead of 112. Lowering it to 15
+# buys the sixth fold (WebAttack, whose family is only 16 flows) at ten times
+# the baselining cost; raising it to 100 reaches zero families of ordinary
+# traffic but loses a fifth fold.
+DISCOVERY_MIN_FLOWS = _env_int("DISCOVERY_MIN_FLOWS", 50)
+# What to do about a reportable unknown family. An unknown is by definition not
+# identified, so the default is the reversible action, not a block.
+DISCOVERY_ACTION = _env("DISCOVERY_ACTION", "quarantine")  # quarantine, block or none
+
+# ---------------------------------------------------------------------------
 # Explanations
 # ---------------------------------------------------------------------------
 # Each alert from a supervised model can carry the features that drove the
@@ -208,6 +243,10 @@ DASHBOARD_PORT = _env_int("DASHBOARD_PORT", 8000)
 ALERT_HISTORY = 500  # alerts kept in memory for newly connected browsers
 
 ALERT_LOG_PATH = LOG_DIR / "alerts.jsonl"
+# Discovered unknown families and the names an operator has given them. This is
+# runtime state, not a trained artifact, and it has to be writable: the NIDS
+# container mounts models/ read-only, so it lives beside the logs.
+FAMILIES_PATH = LOG_DIR / "unknown_families.json"
 LOG_MAX_BYTES = 5 * 1024 * 1024
 LOG_BACKUP_COUNT = 3
 

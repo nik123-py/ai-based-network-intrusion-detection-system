@@ -13,7 +13,7 @@
   "header_correction": false,
   "min_confidence": 0.6,
   "scored_flows": 2059415,
-  "seconds": 2.9,
+  "seconds": 3.0,
   "summary": {
     "flows": 2059415,
     "attacks": 99643,
@@ -250,7 +250,7 @@
     "header_correction": true,
     "min_confidence": 0.6,
     "scored_flows": 2059415,
-    "seconds": 3.0,
+    "seconds": 2.9,
     "summary": {
       "flows": 2059415,
       "attacks": 99643,

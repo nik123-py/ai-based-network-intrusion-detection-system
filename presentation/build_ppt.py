@@ -54,6 +54,15 @@ def load_metrics() -> dict:
             sys.exit(f"missing {path}. Run: python -m src.cli evaluate")
         return json.loads(path.read_text(encoding="utf-8"))
 
+    def read_optional(name: str) -> dict | None:
+        """For artifacts a deck can be built without, such as the open-set
+        results: the slides that need them are skipped rather than guessed."""
+        path = REPORTS / name
+        if not path.exists():
+            print(f"note: {path.name} not found, skipping the slides that need it")
+            return None
+        return json.loads(path.read_text(encoding="utf-8"))
+
     full, lite = read("metrics_full.json"), read("metrics_lite.json")
     return {
         "full": full,
@@ -62,6 +71,8 @@ def load_metrics() -> dict:
         "data": read("data_summary.json"),
         "full_sel": full["models"][full["selected"]],
         "lite_sel": lite["models"][lite["selected"]],
+        "openset": read_optional("openset.json"),
+        "discovery": read_optional("discovery.json"),
     }
 
 
@@ -276,8 +287,8 @@ def slide_title(prs, m):
           color=RGBColor(0xCB, 0xD5, 0xE1))
     write(tf, "signature rules + supervised learning + unsupervised anomaly detection,",
           size=17, color=RGBColor(0xCB, 0xD5, 0xE1))
-    write(tf, "with automated, time-limited firewall response.", size=17,
-          color=RGBColor(0xCB, 0xD5, 0xE1))
+    write(tf, "open-set recognition that can decline to classify, and automated, "
+              "time-limited firewall response.", size=17, color=RGBColor(0xCB, 0xD5, 0xE1))
     tf = textbox(slide, MARGIN, H - Inches(1.3), CONTENT_W, Inches(0.6))
     write(tf, "Trained and evaluated on CIC-IDS2017  |  Validated live in an isolated Docker attack lab",
           size=13, color=MUTED)
@@ -478,32 +489,37 @@ def slide_fusion(prs, m, n):
         ("1", "Signature hit", "Alert immediately, severity HIGH", ACCENT),
         ("2", "Full model, then lite model",
          "Attack class at confidence ≥ 0.9 is HIGH; 0.6 to 0.9 is MEDIUM", ACCENT),
-        ("3", "Autoencoder error above threshold",
-         'Raise "Anomaly (unknown)": MEDIUM if error ≥ 2× threshold, else LOW', ACCENT),
+        ("3", "Open-set test: no class accepts the flow",
+         "Not an alert. The flow goes to the clusterer, which groups it with earlier "
+         "unrecognised flows and reports a named family once it repeats", ACCENT),
+        ("4", "Autoencoder error above threshold",
+         "The same clusterer, by the other route, using the per-feature reconstruction "
+         "errors as the family's fingerprint", ACCENT),
     ]
-    top = Inches(1.95)
+    top = Inches(1.88)
     for num, title, body, color in steps:
-        rect(slide, MARGIN, top, CONTENT_W, Inches(0.95), fill=LIGHT)
-        badge = rect(slide, MARGIN + Inches(0.25), top + Inches(0.22), Inches(0.5),
+        rect(slide, MARGIN, top, CONTENT_W, Inches(0.88), fill=LIGHT)
+        badge = rect(slide, MARGIN + Inches(0.25), top + Inches(0.19), Inches(0.5),
                      Inches(0.5), fill=color, shape=MSO_SHAPE.OVAL)
         write(badge.text_frame, num, size=17, color=WHITE, bold=True, space_after=0,
               para=badge.text_frame.paragraphs[0], align=PP_ALIGN.CENTER)
-        tf = textbox(slide, MARGIN + Inches(1.0), top + Inches(0.12),
+        tf = textbox(slide, MARGIN + Inches(1.0), top + Inches(0.08),
                      CONTENT_W - Inches(1.3), Inches(0.75))
-        write(tf, title, size=16, color=INK, bold=True, space_after=2)
-        write(tf, body, size=13, color=BODY, space_after=0)
-        top += Inches(1.05)
+        write(tf, title, size=15, color=INK, bold=True, space_after=2)
+        write(tf, body, size=12, color=BODY, space_after=0)
+        top += Inches(0.96)
 
     ben = m["data"]["splits"]["test"]["class_counts"]["Benign"]
     fp_rate = m["ae"]["false_positive_rate"]
-    rect(slide, MARGIN, Inches(5.25), CONTENT_W, Inches(1.35), fill=INK)
-    tf = textbox(slide, MARGIN + Inches(0.3), Inches(5.42), CONTENT_W - Inches(0.6), Inches(1.1))
+    rect(slide, MARGIN, Inches(5.7), CONTENT_W, Inches(1.35), fill=INK)
+    tf = textbox(slide, MARGIN + Inches(0.3), Inches(5.85), CONTENT_W - Inches(0.6), Inches(1.15))
     write(tf, "Corroboration: the rule that makes this practical", size=14, color=ACCENT, bold=True)
-    write(tf, f"Weak evidence (lite model, medium confidence, or an anomaly) needs 3 flagged flows "
-              f"from one source within 10 s before any alert. Without it, the autoencoder's "
-              f"{pct(fp_rate)} false-alarm rate over {ben:,} benign test flows would mean roughly "
+    write(tf, f"Weak evidence (lite model or medium confidence) needs 3 flagged flows from one "
+              f"source within 10 s before any alert, and an unknown family has to grow before it "
+              f"is reported. Without a rule of this kind, the autoencoder's {pct(fp_rate)} "
+              f"false-alarm rate over {ben:,} benign test flows would mean roughly "
               f"{round(ben * fp_rate / 100) * 100:,} spurious alerts.",
-          size=14, color=WHITE)
+          size=13, color=WHITE)
     notes(slide, "Priority order, then corroboration. Sustained attacks generate many flows "
                  "from one source, so corroboration costs almost nothing in recall.")
     return slide
@@ -897,6 +913,103 @@ def slide_dashboard(prs, m, n):
     return slide
 
 
+def slide_openset(prs, m, n):
+    """The mechanism: how a closed-set classifier is given a ninth answer."""
+    slide = header(prs, "The ninth class: teaching the models to say \"I do not know\"",
+                   "Contribution", n)
+    rect(slide, MARGIN, Inches(1.8), CONTENT_W, Inches(1.0), fill=INK)
+    tf = textbox(slide, MARGIN + Inches(0.3), Inches(1.92), CONTENT_W - Inches(0.6), Inches(0.8))
+    write(tf, "A trained classifier cannot report a new attack. It has no way to.", size=19,
+          color=WHITE, bold=True)
+    write(tf, "predict_proba returns a distribution over the eight classes in the training data, "
+              "so anything else is assigned to the nearest one, and in practice that is Benign.",
+          size=14, color=RGBColor(0xCB, 0xD5, 0xE1))
+
+    bullets(slide, [
+        "A flow is called known when some class accepts it at level alpha, where acceptance is a "
+        "conformal p-value from the distance to that class's 10 nearest training flows.",
+        ("alpha is not a tuned threshold. It is the share of known traffic the test will route to "
+         "the unknown path, fixed in advance by the construction and verified afterwards.",
+         1, GOOD),
+        "Rejected flows are clustered online by the direction in which they deviate from normal "
+        "traffic, so a novel attack becomes one object that grows, with a stable name and a "
+        "fingerprint, instead of hundreds of unlabelled anomaly lines.",
+        ("A family is reported only once it has grown to a measured size, so precision comes from "
+         "the repetition rather than from the threshold. Demanding a firmer rejection per flow "
+         "instead was tried and measured as worse, for a reason worth two sentences.", 1),
+        "An analyst can promote a family to a real name, which is then used by every later alert. "
+        "That is the one step the system does not attempt for itself.",
+    ], top=Inches(3.05), size=15, gap=10)
+
+    rect(slide, MARGIN, Inches(6.0), CONTENT_W, Inches(0.9), fill=LIGHT)
+    tf = textbox(slide, MARGIN + Inches(0.25), Inches(6.14), CONTENT_W - Inches(0.5), Inches(0.65))
+    write(tf, "An alert now reads: NETRA-U001, 47 unrecognised flows from 3 sources. Flow IAT "
+              "Mean 10.5 s, no backward packets. Nearest known class DoS-Slow, p = 0.004.",
+          size=14, color=INK, bold=True)
+    notes(slide, "This is the part of the project that is not a standard pipeline. The models and "
+                 "the autoencoder are conventional; being able to decline to classify, and then "
+                 "to group and name what was declined, is not.")
+    return slide
+
+
+def slide_openset_results(prs, m, n):
+    """The measurement, read from reports/openset.json and discovery.json."""
+    r = m["openset"]
+    slide = header(prs, "Does it work? Leave one attack class out entirely", "Results", n)
+    loco = r.get("leave_one_class_out") or {}
+    folds = loco.get("folds", [])
+
+    tf = textbox(slide, MARGIN, Inches(1.75), CONTENT_W, Inches(0.5))
+    write(tf, "Each row removes that class from training, from the feature scaling and from the "
+              "calibration, then replays its test flows. Nothing in the fold has ever seen it.",
+          size=14, color=MUTED)
+
+    rows = []
+    for f in folds:
+        rows.append([f["held_out"], f"{f['novel_flows']:,}", f"{f['novelty_auc']:.3f}",
+                     pct(f["closed_set_called_benign"], 1), pct(f["unknown_rate"], 1),
+                     pct(f["surfaced_rate"], 1)])
+    totals = loco.get("totals", {})
+    if totals:
+        rows.append(["mean", "", f"{totals['mean_novelty_auc']:.3f}",
+                     pct(totals["mean_closed_set_called_benign"], 1),
+                     pct(totals["mean_unknown_rate"], 1),
+                     pct(totals["mean_surfaced_rate"], 1)])
+    table(slide, ["Held out", "Flows", "AUC", "Closed-set: called Benign",
+                  "Open-set: unknown", "Surfaced to operator"], rows,
+          top=Inches(2.35), col_widths=[1.3, 0.8, 0.7, 1.5, 1.1, 1.2], size=12,
+          highlight={len(rows) - 1} if totals else None)
+
+    kr = r["known_rejection"]["scores"][r["score"]]
+    bottom = Inches(2.35) + Inches(0.36) * (len(rows) + 1) + Inches(0.25)
+    items = [
+        (f"The price is known in advance: alpha = {r['alpha']} promised, "
+         f"{kr['rejection_rate']:.4f} of known test flows actually rejected.", 0, GOOD),
+    ]
+    if m.get("discovery"):
+        d = m["discovery"]["totals"]
+        items.append(
+            (f"The rejected flows cluster into real families: purity {d['mean_purity']:.3f}, "
+             f"adjusted Rand index {d['mean_adjusted_rand_index']:.3f}, and the novel family was "
+             f"reported in {d['folds_where_novel_family_reported']} of "
+             f"{len(m['discovery']['folds'])} folds after a median of "
+             f"{d['median_flows_to_discovery']:.0f} rejected flows.", 0, GOOD))
+        items.append(
+            (f"{d['total_false_alarm_families']} reportable families across all folds were "
+             f"ordinary traffic rather than the held-out attack.", 0,
+             GOOD if d["total_false_alarm_families"] == 0 else BAD))
+    items.append(
+        ("Novelty detection is uneven, and the AUC column says where. Flows whose features "
+         "genuinely lie inside the benign distribution cannot be separated by any method using "
+         "those features.", 0, BAD))
+    bullets(slide, items, top=bottom, size=14, gap=8)
+    notes(slide, "The closed-set column is the point. For several classes the existing model "
+                 "calls every flow of an unseen attack Benign and says nothing at all. The "
+                 "per-flow unknown rate understates detection, because an attack produces many "
+                 "flows and a family needs only a few.")
+    return slide
+
+
 def slide_finding(prs, m, n):
     slide = header(prs, "Key finding: an entire feature family is unusable", "Discussion", n)
     rect(slide, MARGIN, Inches(1.85), CONTENT_W, Inches(1.12), fill=INK)
@@ -966,17 +1079,24 @@ def slide_limitations(prs, m, n):
 def slide_future(prs, m, n):
     slide = header(prs, "Future work", "Conclusion", n)
     items = [
-        ("1", "Cross-dataset evaluation", "Measure how much of this performance is specific to "
-                                          "CIC-IDS2017 by testing against UNSW-NB15 [2]."),
-        ("2", "Payload features", "Address the WebAttack and Bot weakness directly, which flow "
-                                  "statistics provably cannot separate."),
-        ("3", "Online adaptation", "Recalibrate the autoencoder threshold against the deployment "
-                                   "network's own benign traffic rather than the dataset's."),
+        ("1", "Payload features", "The clearest remaining gap, and the open-set results say why: "
+                                  "a held-out WebAttack flow is ranked as more ordinary than "
+                                  "benign traffic, because at flow level a SQL injection is a "
+                                  "small HTTP request. No threshold fixes that; only inspecting "
+                                  "the payload does."),
+        ("2", "Retrain from promoted families", "A named family is labelled data. Feeding it back "
+                                                "into training would turn each discovery into a "
+                                                "ninth class, closing the loop the analyst opens."),
+        ("3", "Correlate alerts into campaigns", "Group alerts by attacker, victim and time into "
+                                                 "one incident with a kill-chain order, so a "
+                                                 "multi-stage intrusion reads as one story rather "
+                                                 "than dozens of separate alerts."),
         ("4", "Richer response", "Honeypot redirection, graduated rate limiting before outright "
                                  "blocking, and enforcement through an external firewall API."),
-        ("5", "Ensemble anomaly detection", "Test whether an ensemble of small autoencoders over "
-                                            "feature subsets, as in Kitsune [4], beats the single "
-                                            "network used here."),
+        ("5", "A discriminative embedding", "The open-set test measures distance in the scaled "
+                                            "feature space. A representation trained to separate "
+                                            "classes, such as the forest's own leaf structure, "
+                                            "may raise the weaker AUCs."),
     ]
     top = Inches(1.95)
     for num, title, body in items:
@@ -988,8 +1108,10 @@ def slide_future(prs, m, n):
         write(tf, title, size=16, color=INK, bold=True, space_after=1)
         write(tf, body, size=13, color=BODY, space_after=0)
         top += Inches(0.92)
-    notes(slide, "Ordered by expected value. Cross-dataset evaluation is first precisely because "
-                 "of the flag-counter finding.")
+    notes(slide, "Ordered by expected value. Cross-dataset evaluation and threshold "
+                 "recalibration were on this list and have since been done, so they are results "
+                 "now rather than plans. Payload features are first because the open-set "
+                 "experiment shows exactly which attacks flow statistics cannot reach.")
     return slide
 
 
@@ -1014,6 +1136,10 @@ def slide_conclusion(prs, m, n):
         "In live operation against four real attack tools, every attack was detected within about "
         "a second and answered with a timed, reversible firewall rule, while ordinary traffic "
         "raised no alert.",
+        "A closed-set classifier cannot report an attack it was not trained on, and silently "
+        "calls it benign. A conformal open-set test, whose false-alarm cost is fixed in advance "
+        "rather than tuned, plus online clustering of what it rejects, turns that silence into a "
+        "named family with a fingerprint that an analyst can identify.",
     ], top=Inches(3.5), size=15, gap=12)
 
     rect(slide, MARGIN, Inches(5.55), CONTENT_W, Inches(1.15), fill=INK)
@@ -1081,7 +1207,15 @@ def build(out: Path) -> Path:
         slide_problem, slide_objectives, slide_literature, slide_architecture,
         slide_signatures, slide_models, slide_fusion, slide_response,
         slide_dataset, slide_features, slide_results_full, slide_results_lite,
-        slide_confusion, slide_results_ae, slide_lab, slide_topology, slide_live,
+        slide_confusion, slide_results_ae,
+    ]
+    # The open-set slides need reports/openset.json, written by
+    # `python -m src.cli openset-eval`. Without it the deck still builds.
+    builders.append(slide_openset)
+    if m.get("openset"):
+        builders.append(slide_openset_results)
+    builders += [
+        slide_lab, slide_topology, slide_live,
         slide_dashboard,
         slide_finding, slide_limitations, slide_future, slide_conclusion,
         slide_references,

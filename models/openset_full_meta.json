@@ -1,0 +1,89 @@
+{
+  "kind": "full",
+  "alpha": 0.05,
+  "score": "knn",
+  "k": 10,
+  "n_features": 59,
+  "fit_rows": 635280,
+  "calibration_rows": 329392,
+  "metric": "Euclidean in the space whitened by the mean class precision",
+  "covariance": "Ledoit-Wolf shrinkage, per class",
+  "scores_calibrated": [
+    "knn",
+    "gaussian"
+  ],
+  "per_class": {
+    "Benign": {
+      "fit_rows": 400000,
+      "reference_rows": 4000,
+      "calibration_rows": 278975,
+      "shrinkage": 0.0,
+      "sufficient_calibration": true,
+      "knn_calibration_median": 19.8031,
+      "gaussian_calibration_median": 5.7463
+    },
+    "Bot": {
+      "fit_rows": 977,
+      "reference_rows": 977,
+      "calibration_rows": 209,
+      "shrinkage": 0.003,
+      "sufficient_calibration": true,
+      "knn_calibration_median": 0.6861,
+      "gaussian_calibration_median": 1.8809
+    },
+    "BruteForce": {
+      "fit_rows": 6405,
+      "reference_rows": 4000,
+      "calibration_rows": 1372,
+      "shrinkage": 0.0003,
+      "sufficient_calibration": true,
+      "knn_calibration_median": 0.9591,
+      "gaussian_calibration_median": 2.5406
+    },
+    "DDoS": {
+      "fit_rows": 89606,
+      "reference_rows": 4000,
+      "calibration_rows": 19202,
+      "shrinkage": 0.0,
+      "sufficient_calibration": true,
+      "knn_calibration_median": 3.4449,
+      "gaussian_calibration_median": 4.0454
+    },
+    "DoS": {
+      "fit_rows": 128077,
+      "reference_rows": 4000,
+      "calibration_rows": 27445,
+      "shrinkage": 0.0001,
+      "sufficient_calibration": true,
+      "knn_calibration_median": 8.364,
+      "gaussian_calibration_median": 4.3529
+    },
+    "DoS-Slow": {
+      "fit_rows": 7420,
+      "reference_rows": 4000,
+      "calibration_rows": 1590,
+      "shrinkage": 0.0004,
+      "sufficient_calibration": true,
+      "knn_calibration_median": 0.4841,
+      "gaussian_calibration_median": 3.0641
+    },
+    "PortScan": {
+      "fit_rows": 1295,
+      "reference_rows": 1295,
+      "calibration_rows": 277,
+      "shrinkage": 0.0046,
+      "sufficient_calibration": true,
+      "knn_calibration_median": 0.8101,
+      "gaussian_calibration_median": 2.62
+    },
+    "WebAttack": {
+      "fit_rows": 1500,
+      "reference_rows": 1500,
+      "calibration_rows": 322,
+      "shrinkage": 0.0101,
+      "sufficient_calibration": true,
+      "knn_calibration_median": 0.1531,
+      "gaussian_calibration_median": 0.7159
+    }
+  }
+}

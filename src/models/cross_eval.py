@@ -300,7 +300,25 @@ def write_markdown(r: dict) -> None:
             "wrong way.",
         ]
 
-    lines += ["", "![Cross-dataset results](cross_dataset.png)", ""]
+    lines += [
+        "",
+        "![Cross-dataset results](cross_dataset.png)",
+        "",
+        "## What the system does about this",
+        "",
+        "A detection rate of 0.0003 is the symptom. The disease is that a closed-set",
+        "classifier has no way to report the situation: its output is a distribution over",
+        "the eight classes it was trained on, so on an unfamiliar network it returns the",
+        "nearest one, which is Benign, with high confidence, and the operator sees a quiet",
+        "network. The open-set layer added later gives it the missing answer. It cannot",
+        "recover the detection rate, and nothing using these six features could, because",
+        "UNSW attack flows sit inside the CIC benign distribution exactly as the table",
+        "above shows. What it changes is that the sensor reports a large share of this",
+        "traffic as matching nothing it knows, which says the model needs retraining for",
+        "this network rather than that the network is safe. The measured rates are in",
+        "section 4 of [OPENSET.md](OPENSET.md).",
+        "",
+    ]
     REPORT_MD.write_text("\n".join(lines), encoding="utf-8")
 
 

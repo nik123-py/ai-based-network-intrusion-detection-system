@@ -52,6 +52,17 @@ class AutoencoderScorer:
         Xc = np.clip(np.asarray(X, dtype=np.float32), -CLIP, CLIP)
         return np.mean((self.reconstruct(Xc) - Xc) ** 2, axis=1)
 
+    def errors_per_feature(self, X: np.ndarray) -> np.ndarray:
+        """Squared reconstruction error of every feature, per row.
+
+        ``score`` is the mean of this over features, so this is the
+        decomposition of the anomaly score: the features the autoencoder could
+        not reproduce are the ones that made the flow anomalous. It is what lets
+        an anomaly alert name a cause instead of only a number.
+        """
+        Xc = np.clip(np.asarray(X, dtype=np.float32), -CLIP, CLIP)
+        return (self.reconstruct(Xc) - Xc) ** 2
+
     def is_anomaly(self, X: np.ndarray) -> np.ndarray:
         return self.score(X) > self.threshold
 

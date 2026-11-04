@@ -1,0 +1,807 @@
+{
+  "kind": "full",
+  "alpha": 0.05,
+  "score": "knn",
+  "radius_factor": 1.0,
+  "metric": "cosine",
+  "min_family_flows": 50,
+  "known_mix": 30000,
+  "folds": [
+    {
+      "held_out": "Bot",
+      "novel_flows": 209,
+      "known_flows_mixed": 30000,
+      "radius": 0.05,
+      "rejected_flows": 1395,
+      "rejected_novel": 2,
+      "rejected_known": 1393,
+      "novel_rejection_rate": 0.009569377990430622,
+      "families": 226,
+      "families_reportable": 2,
+      "dominant_family_reported": false,
+      "false_alarm_families": 2,
+      "threshold_curve": [
+        {
+          "min_flows": 3,
+          "families_reported": 114,
+          "novel_family_reported": true,
+          "false_alarm_families": 113
+        },
+        {
+          "min_flows": 5,
+          "families_reported": 74,
+          "novel_family_reported": false,
+          "false_alarm_families": 74
+        },
+        {
+          "min_flows": 10,
+          "families_reported": 39,
+          "novel_family_reported": false,
+          "false_alarm_families": 39
+        },
+        {
+          "min_flows": 15,
+          "families_reported": 25,
+          "novel_family_reported": false,
+          "false_alarm_families": 25
+        },
+        {
+          "min_flows": 20,
+          "families_reported": 17,
+          "novel_family_reported": false,
+          "false_alarm_families": 17
+        },
+        {
+          "min_flows": 30,
+          "families_reported": 9,
+          "novel_family_reported": false,
+          "false_alarm_families": 9
+        },
+        {
+          "min_flows": 50,
+          "families_reported": 2,
+          "novel_family_reported": false,
+          "false_alarm_families": 2
+        },
+        {
+          "min_flows": 100,
+          "families_reported": 0,
+          "novel_family_reported": false,
+          "false_alarm_families": 0
+        }
+      ],
+      "purity": 0.9956989247311828,
+      "adjusted_rand_index": 0.006792890641849266,
+      "purity_by_tool": 0.9956989247311828,
+      "adjusted_rand_index_by_tool": 0.006803164367548993,
+      "novel_tools": [
+        "Bot"
+      ],
+      "dominant_family_tools": {
+        "Bot": 2,
+        "BENIGN": 1
+      },
+      "dominant_family": "NETRA-U200",
+      "dominant_family_recall": 1.0,
+      "dominant_family_precision": 0.6666666666666666,
+      "flows_to_discovery": null,
+      "largest_families": [
+        {
+          "family": "NETRA-U029",
+          "flows": 72,
+          "composition": {
+            "Benign": 72
+          }
+        },
+        {
+          "family": "NETRA-U003",
+          "flows": 52,
+          "composition": {
+            "DDoS": 52
+          }
+        },
+        {
+          "family": "NETRA-U045",
+          "flows": 45,
+          "composition": {
+            "Benign": 45
+          }
+        }
+      ],
+      "clustering_seconds": 4.2,
+      "example_description": "NETRA-U200: 3 unrecognised flows from 3 sources. Total Length of Fwd Packets=134342 (3.6 above benign), Subflow Fwd Bytes=134342 (3.6 above benign), Avg Fwd Segment Size=4071 (3.5 above benign), Fwd Packet Length Mean=4071 (3.5 above benign). nearest known class Benign (p=0.022)"
+    },
+    {
+      "held_out": "BruteForce",
+      "novel_flows": 1373,
+      "known_flows_mixed": 30000,
+      "radius": 0.05,
+      "rejected_flows": 1540,
+      "rejected_novel": 283,
+      "rejected_known": 1257,
+      "novel_rejection_rate": 0.20611798980335033,
+      "families": 188,
+      "families_reportable": 3,
+      "dominant_family_reported": true,
+      "false_alarm_families": 2,
+      "threshold_curve": [
+        {
+          "min_flows": 3,
+          "families_reported": 101,
+          "novel_family_reported": true,
+          "false_alarm_families": 99
+        },
+        {
+          "min_flows": 5,
+          "families_reported": 74,
+          "novel_family_reported": true,
+          "false_alarm_families": 72
+        },
+        {
+          "min_flows": 10,
+          "families_reported": 37,
+          "novel_family_reported": true,
+          "false_alarm_families": 36
+        },
+        {
+          "min_flows": 15,
+          "families_reported": 23,
+          "novel_family_reported": true,
+          "false_alarm_families": 22
+        },
+        {
+          "min_flows": 20,
+          "families_reported": 16,
+          "novel_family_reported": true,
+          "false_alarm_families": 15
+        },
+        {
+          "min_flows": 30,
+          "families_reported": 9,
+          "novel_family_reported": true,
+          "false_alarm_families": 8
+        },
+        {
+          "min_flows": 50,
+          "families_reported": 3,
+          "novel_family_reported": true,
+          "false_alarm_families": 2
+        },
+        {
+          "min_flows": 100,
+          "families_reported": 1,
+          "novel_family_reported": true,
+          "false_alarm_families": 0
+        }
+      ],
+      "purity": 0.990909090909091,
+      "adjusted_rand_index": 0.04186881115445802,
+      "purity_by_tool": 0.9896103896103896,
+      "adjusted_rand_index_by_tool": 0.04056744850209723,
+      "novel_tools": [
+        "FTP-Patator",
+        "SSH-Patator"
+      ],
+      "dominant_family_tools": {
+        "FTP-Patator": 274,
+        "SSH-Patator": 2
+      },
+      "dominant_family": "NETRA-U001",
+      "dominant_family_recall": 0.9752650176678446,
+      "dominant_family_precision": 1.0,
+      "flows_to_discovery": 268,
+      "largest_families": [
+        {
+          "family": "NETRA-U001",
+          "flows": 276,
+          "composition": {
+            "BruteForce": 276
+          }
+        },
+        {
+          "family": "NETRA-U006",
+          "flows": 71,
+          "composition": {
+            "Benign": 71
+          }
+        },
+        {
+          "family": "NETRA-U016",
+          "flows": 57,
+          "composition": {
+            "Benign": 57
+          }
+        }
+      ],
+      "clustering_seconds": 4.4,
+      "example_description": "NETRA-U001: 276 unrecognised flows from 1 source. Bwd Packets/s=5208 (1.5 above benign), Fwd Packets/s=10417 (1.4 above benign), Avg Bwd Segment Size=0.0 (1.4 below benign), Bwd Packet Length Mean=0.0 (1.4 below benign). nearest known class Benign (p=0.035)"
+    },
+    {
+      "held_out": "DDoS",
+      "novel_flows": 19201,
+      "known_flows_mixed": 30000,
+      "radius": 0.05,
+      "rejected_flows": 18875,
+      "rejected_novel": 17479,
+      "rejected_known": 1396,
+      "novel_rejection_rate": 0.9103171709806781,
+      "families": 237,
+      "families_reportable": 9,
+      "dominant_family_reported": true,
+      "false_alarm_families": 2,
+      "threshold_curve": [
+        {
+          "min_flows": 3,
+          "families_reported": 118,
+          "novel_family_reported": true,
+          "false_alarm_families": 108
+        },
+        {
+          "min_flows": 5,
+          "families_reported": 81,
+          "novel_family_reported": true,
+          "false_alarm_families": 71
+        },
+        {
+          "min_flows": 10,
+          "families_reported": 50,
+          "novel_family_reported": true,
+          "false_alarm_families": 41
+        },
+        {
+          "min_flows": 15,
+          "families_reported": 35,
+          "novel_family_reported": true,
+          "false_alarm_families": 27
+        },
+        {
+          "min_flows": 20,
+          "families_reported": 27,
+          "novel_family_reported": true,
+          "false_alarm_families": 19
+        },
+        {
+          "min_flows": 30,
+          "families_reported": 18,
+          "novel_family_reported": true,
+          "false_alarm_families": 11
+        },
+        {
+          "min_flows": 50,
+          "families_reported": 9,
+          "novel_family_reported": true,
+          "false_alarm_families": 2
+        },
+        {
+          "min_flows": 100,
+          "families_reported": 7,
+          "novel_family_reported": true,
+          "false_alarm_families": 0
+        }
+      ],
+      "purity": 0.9978278145695364,
+      "adjusted_rand_index": 0.11075360849946583,
+      "purity_by_tool": 0.9976688741721854,
+      "adjusted_rand_index_by_tool": 0.11075579117339995,
+      "novel_tools": [
+        "DDoS"
+      ],
+      "dominant_family_tools": {
+        "DDoS": 8642
+      },
+      "dominant_family": "NETRA-U002",
+      "dominant_family_recall": 0.4944218776817896,
+      "dominant_family_precision": 1.0,
+      "flows_to_discovery": 111,
+      "largest_families": [
+        {
+          "family": "NETRA-U002",
+          "flows": 8642,
+          "composition": {
+            "DDoS": 8642
+          }
+        },
+        {
+          "family": "NETRA-U005",
+          "flows": 3769,
+          "composition": {
+            "DDoS": 3769
+          }
+        },
+        {
+          "family": "NETRA-U007",
+          "flows": 1681,
+          "composition": {
+            "DDoS": 1671,
+            "DoS": 10
+          }
+        }
+      ],
+      "clustering_seconds": 59.7,
+      "example_description": "NETRA-U002: 8642 unrecognised flows from 1 source. Bwd Packet Length Std=2177 (1.8 above benign), Down/Up Ratio=2.0 (1.7 above benign), Packet Length Variance=3625074 (1.6 above benign), Packet Length Std=1904 (1.6 above benign). nearest known class Benign (p=0.026)"
+    },
+    {
+      "held_out": "DoS",
+      "novel_flows": 27445,
+      "known_flows_mixed": 30000,
+      "radius": 0.05,
+      "rejected_flows": 6771,
+      "rejected_novel": 5241,
+      "rejected_known": 1530,
+      "novel_rejection_rate": 0.19096374567316451,
+      "families": 296,
+      "families_reportable": 14,
+      "dominant_family_reported": true,
+      "false_alarm_families": 5,
+      "threshold_curve": [
+        {
+          "min_flows": 3,
+          "families_reported": 138,
+          "novel_family_reported": true,
+          "false_alarm_families": 116
+        },
+        {
+          "min_flows": 5,
+          "families_reported": 106,
+          "novel_family_reported": true,
+          "false_alarm_families": 85
+        },
+        {
+          "min_flows": 10,
+          "families_reported": 62,
+          "novel_family_reported": true,
+          "false_alarm_families": 44
+        },
+        {
+          "min_flows": 15,
+          "families_reported": 39,
+          "novel_family_reported": true,
+          "false_alarm_families": 23
+        },
+        {
+          "min_flows": 20,
+          "families_reported": 29,
+          "novel_family_reported": true,
+          "false_alarm_families": 16
+        },
+        {
+          "min_flows": 30,
+          "families_reported": 23,
+          "novel_family_reported": true,
+          "false_alarm_families": 10
+        },
+        {
+          "min_flows": 50,
+          "families_reported": 14,
+          "novel_family_reported": true,
+          "false_alarm_families": 5
+        },
+        {
+          "min_flows": 100,
+          "families_reported": 8,
+          "novel_family_reported": true,
+          "false_alarm_families": 0
+        }
+      ],
+      "purity": 0.9970462265544233,
+      "adjusted_rand_index": 0.20544268544882338,
+      "purity_by_tool": 0.9970462265544233,
+      "adjusted_rand_index_by_tool": 0.28649871487989836,
+      "novel_tools": [
+        "DoS GoldenEye",
+        "DoS Hulk"
+      ],
+      "dominant_family_tools": {
+        "DoS Hulk": 2639
+      },
+      "dominant_family": "NETRA-U001",
+      "dominant_family_recall": 0.5035298607136043,
+      "dominant_family_precision": 1.0,
+      "flows_to_discovery": 108,
+      "largest_families": [
+        {
+          "family": "NETRA-U001",
+          "flows": 2639,
+          "composition": {
+            "DoS": 2639
+          }
+        },
+        {
+          "family": "NETRA-U007",
+          "flows": 607,
+          "composition": {
+            "DoS": 607
+          }
+        },
+        {
+          "family": "NETRA-U046",
+          "flows": 394,
+          "composition": {
+            "DoS": 394
+          }
+        }
+      ],
+      "clustering_seconds": 23.6,
+      "example_description": "NETRA-U001: 2639 unrecognised flows from 1 source. Idle Min=100000000 (2.2 above benign), Idle Mean=100000000 (2.2 above benign), Idle Max=100000000 (2.1 above benign), Fwd IAT Std=40900000 (1.9 above benign). nearest known class Benign (p=0.022)"
+    },
+    {
+      "held_out": "DoS-Slow",
+      "novel_flows": 1590,
+      "known_flows_mixed": 30000,
+      "radius": 0.05,
+      "rejected_flows": 3002,
+      "rejected_novel": 1561,
+      "rejected_known": 1441,
+      "novel_rejection_rate": 0.9817610062893082,
+      "families": 252,
+      "families_reportable": 10,
+      "dominant_family_reported": true,
+      "false_alarm_families": 2,
+      "threshold_curve": [
+        {
+          "min_flows": 3,
+          "families_reported": 119,
+          "novel_family_reported": true,
+          "false_alarm_families": 102
+        },
+        {
+          "min_flows": 5,
+          "families_reported": 96,
+          "novel_family_reported": true,
+          "false_alarm_families": 82
+        },
+        {
+          "min_flows": 10,
+          "families_reported": 51,
+          "novel_family_reported": true,
+          "false_alarm_families": 40
+        },
+        {
+          "min_flows": 15,
+          "families_reported": 35,
+          "novel_family_reported": true,
+          "false_alarm_families": 24
+        },
+        {
+          "min_flows": 20,
+          "families_reported": 24,
+          "novel_family_reported": true,
+          "false_alarm_families": 14
+        },
+        {
+          "min_flows": 30,
+          "families_reported": 20,
+          "novel_family_reported": true,
+          "false_alarm_families": 11
+        },
+        {
+          "min_flows": 50,
+          "families_reported": 10,
+          "novel_family_reported": true,
+          "false_alarm_families": 2
+        },
+        {
+          "min_flows": 100,
+          "families_reported": 5,
+          "novel_family_reported": true,
+          "false_alarm_families": 0
+        }
+      ],
+      "purity": 0.9830113257828115,
+      "adjusted_rand_index": 0.10253676134768969,
+      "purity_by_tool": 0.9427048634243838,
+      "adjusted_rand_index_by_tool": 0.15315336578409594,
+      "novel_tools": [
+        "DoS Slowhttptest",
+        "DoS slowloris"
+      ],
+      "dominant_family_tools": {
+        "DoS Slowhttptest": 416,
+        "BENIGN": 10
+      },
+      "dominant_family": "NETRA-U007",
+      "dominant_family_recall": 0.26649583600256244,
+      "dominant_family_precision": 0.9765258215962441,
+      "flows_to_discovery": 342,
+      "largest_families": [
+        {
+          "family": "NETRA-U007",
+          "flows": 426,
+          "composition": {
+            "DoS-Slow": 416,
+            "Benign": 10
+          }
+        },
+        {
+          "family": "NETRA-U005",
+          "flows": 290,
+          "composition": {
+            "DoS-Slow": 289,
+            "Benign": 1
+          }
+        },
+        {
+          "family": "NETRA-U012",
+          "flows": 239,
+          "composition": {
+            "DoS-Slow": 237,
+            "Benign": 2
+          }
+        }
+      ],
+      "clustering_seconds": 10.6,
+      "example_description": "NETRA-U007: 426 unrecognised flows from 5 sources. Idle Std=12200000 (4.0 above benign), Active Min=7013603 (3.0 above benign), Fwd IAT Min=997691 (3.0 above benign), Active Mean=7013603 (2.9 above benign). nearest known class Bot (p=0.010)"
+    },
+    {
+      "held_out": "PortScan",
+      "novel_flows": 278,
+      "known_flows_mixed": 30000,
+      "radius": 0.05,
+      "rejected_flows": 1520,
+      "rejected_novel": 107,
+      "rejected_known": 1413,
+      "novel_rejection_rate": 0.38489208633093525,
+      "families": 236,
+      "families_reportable": 2,
+      "dominant_family_reported": true,
+      "false_alarm_families": 1,
+      "threshold_curve": [
+        {
+          "min_flows": 3,
+          "families_reported": 119,
+          "novel_family_reported": true,
+          "false_alarm_families": 115
+        },
+        {
+          "min_flows": 5,
+          "families_reported": 84,
+          "novel_family_reported": true,
+          "false_alarm_families": 81
+        },
+        {
+          "min_flows": 10,
+          "families_reported": 37,
+          "novel_family_reported": true,
+          "false_alarm_families": 35
+        },
+        {
+          "min_flows": 15,
+          "families_reported": 24,
+          "novel_family_reported": true,
+          "false_alarm_families": 22
+        },
+        {
+          "min_flows": 20,
+          "families_reported": 15,
+          "novel_family_reported": true,
+          "false_alarm_families": 13
+        },
+        {
+          "min_flows": 30,
+          "families_reported": 13,
+          "novel_family_reported": true,
+          "false_alarm_families": 11
+        },
+        {
+          "min_flows": 50,
+          "families_reported": 2,
+          "novel_family_reported": true,
+          "false_alarm_families": 1
+        },
+        {
+          "min_flows": 100,
+          "families_reported": 0,
+          "novel_family_reported": false,
+          "false_alarm_families": 0
+        }
+      ],
+      "purity": 0.9756578947368421,
+      "adjusted_rand_index": 0.009371077678585955,
+      "purity_by_tool": 0.9756578947368421,
+      "adjusted_rand_index_by_tool": 0.009381509008984793,
+      "novel_tools": [
+        "PortScan"
+      ],
+      "dominant_family_tools": {
+        "PortScan": 44,
+        "BENIGN": 17
+      },
+      "dominant_family": "NETRA-U013",
+      "dominant_family_recall": 0.411214953271028,
+      "dominant_family_precision": 0.7213114754098361,
+      "flows_to_discovery": 1307,
+      "largest_families": [
+        {
+          "family": "NETRA-U007",
+          "flows": 71,
+          "composition": {
+            "Benign": 71
+          }
+        },
+        {
+          "family": "NETRA-U013",
+          "flows": 61,
+          "composition": {
+            "PortScan": 44,
+            "Benign": 17
+          }
+        },
+        {
+          "family": "NETRA-U010",
+          "flows": 47,
+          "composition": {
+            "Benign": 47
+          }
+        }
+      ],
+      "clustering_seconds": 5.0,
+      "example_description": "NETRA-U013: 61 unrecognised flows from 9 sources. Avg Fwd Segment Size=0.0 (2.4 below benign), Fwd Packet Length Mean=0.0 (2.4 below benign), Subflow Fwd Bytes=0.0 (2.2 below benign), Total Length of Fwd Packets=0.0 (2.2 below benign). nearest known class Benign (p=0.020)"
+    },
+    {
+      "held_out": "WebAttack",
+      "novel_flows": 321,
+      "known_flows_mixed": 30000,
+      "radius": 0.05,
+      "rejected_flows": 1403,
+      "rejected_novel": 16,
+      "rejected_known": 1387,
+      "novel_rejection_rate": 0.04984423676012461,
+      "families": 235,
+      "families_reportable": 2,
+      "dominant_family_reported": false,
+      "false_alarm_families": 2,
+      "threshold_curve": [
+        {
+          "min_flows": 3,
+          "families_reported": 115,
+          "novel_family_reported": true,
+          "false_alarm_families": 114
+        },
+        {
+          "min_flows": 5,
+          "families_reported": 84,
+          "novel_family_reported": true,
+          "false_alarm_families": 83
+        },
+        {
+          "min_flows": 10,
+          "families_reported": 43,
+          "novel_family_reported": true,
+          "false_alarm_families": 42
+        },
+        {
+          "min_flows": 15,
+          "families_reported": 25,
+          "novel_family_reported": true,
+          "false_alarm_families": 24
+        },
+        {
+          "min_flows": 20,
+          "families_reported": 18,
+          "novel_family_reported": false,
+          "false_alarm_families": 18
+        },
+        {
+          "min_flows": 30,
+          "families_reported": 7,
+          "novel_family_reported": false,
+          "false_alarm_families": 7
+        },
+        {
+          "min_flows": 50,
+          "families_reported": 2,
+          "novel_family_reported": false,
+          "false_alarm_families": 2
+        },
+        {
+          "min_flows": 100,
+          "families_reported": 0,
+          "novel_family_reported": false,
+          "false_alarm_families": 0
+        }
+      ],
+      "purity": 0.9957234497505346,
+      "adjusted_rand_index": 0.006562950414294822,
+      "purity_by_tool": 0.9935851746258019,
+      "adjusted_rand_index_by_tool": 0.0064900783501533185,
+      "novel_tools": [
+        "Web Attack Brute Force",
+        "Web Attack XSS"
+      ],
+      "dominant_family_tools": {
+        "Web Attack Brute Force": 14,
+        "Web Attack XSS": 2
+      },
+      "dominant_family": "NETRA-U083",
+      "dominant_family_recall": 1.0,
+      "dominant_family_precision": 1.0,
+      "flows_to_discovery": null,
+      "largest_families": [
+        {
+          "family": "NETRA-U008",
+          "flows": 67,
+          "composition": {
+            "Benign": 67
+          }
+        },
+        {
+          "family": "NETRA-U037",
+          "flows": 52,
+          "composition": {
+            "Benign": 52
+          }
+        },
+        {
+          "family": "NETRA-U004",
+          "flows": 45,
+          "composition": {
+            "DDoS": 45
+          }
+        }
+      ],
+      "clustering_seconds": 4.7,
+      "example_description": "NETRA-U083: 16 unrecognised flows from 1 source. Total Fwd Packets=203.0 (5.2 above benign), Subflow Fwd Packets=203.0 (5.2 above benign), act_data_pkt_fwd=101.0 (4.8 above benign), Fwd Header Length=6504 (4.6 above benign). nearest known class Benign (p=0.031)"
+    }
+  ],
+  "totals": {
+    "mean_purity": 0.990839246719203,
+    "mean_adjusted_rand_index": 0.06904696931216671,
+    "mean_purity_by_tool": 0.9845674782650298,
+    "mean_adjusted_rand_index_by_tool": 0.08766429600945409,
+    "mean_dominant_recall": 0.6644182207624042,
+    "mean_dominant_precision": 0.9092148519532496,
+    "median_flows_to_discovery": 268.0,
+    "folds_where_novel_family_reported": 5,
+    "total_false_alarm_families": 16,
+    "threshold_curve": [
+      {
+        "min_flows": 3,
+        "folds_where_novel_family_reported": 7,
+        "total_false_alarm_families": 767,
+        "total_families_reported": 824
+      },
+      {
+        "min_flows": 5,
+        "folds_where_novel_family_reported": 6,
+        "total_false_alarm_families": 548,
+        "total_families_reported": 599
+      },
+      {
+        "min_flows": 10,
+        "folds_where_novel_family_reported": 6,
+        "total_false_alarm_families": 277,
+        "total_families_reported": 319
+      },
+      {
+        "min_flows": 15,
+        "folds_where_novel_family_reported": 6,
+        "total_false_alarm_families": 167,
+        "total_families_reported": 206
+      },
+      {
+        "min_flows": 20,
+        "folds_where_novel_family_reported": 5,
+        "total_false_alarm_families": 112,
+        "total_families_reported": 146
+      },
+      {
+        "min_flows": 30,
+        "folds_where_novel_family_reported": 5,
+        "total_false_alarm_families": 67,
+        "total_families_reported": 99
+      },
+      {
+        "min_flows": 50,
+        "folds_where_novel_family_reported": 5,
+        "total_false_alarm_families": 16,
+        "total_families_reported": 42
+      },
+      {
+        "min_flows": 100,
+        "folds_where_novel_family_reported": 4,
+        "total_false_alarm_families": 0,
+        "total_families_reported": 21
+      }
+    ]
+  }
+}

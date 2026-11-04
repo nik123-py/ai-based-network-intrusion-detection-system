@@ -1,0 +1,696 @@
+% Netra: concepts explained simply, for viva preparation.
+% Build with:  pdflatex concepts.tex   (run twice for the table of contents)
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{mdframed}
+\usepackage{parskip}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{ink}{HTML}{14213D}
+\definecolor{accent}{HTML}{1D6FB8}
+\definecolor{panel}{HTML}{EEF3F8}
+\definecolor{good}{HTML}{15803D}
+
+\titleformat{\section}{\color{ink}\Large\bfseries}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\color{accent}\large\bfseries}{\thesubsection}{0.6em}{}
+
+% A term entry: \term{Name}{plain meaning}{where it shows up in Netra}
+\newcommand{\term}[3]{%
+  \par\medskip\noindent\textbf{\color{ink}#1}\par
+  \nobreak\vspace{1pt}#2\par
+  \nobreak\vspace{1pt}\textit{\color{accent}In Netra:} #3\par}
+
+% A box for the one-line answer to give in a viva
+\newmdenv[backgroundcolor=panel,linewidth=0pt,skipabove=8pt,skipbelow=8pt,
+          innertopmargin=6pt,innerbottommargin=6pt]{saybox}
+
+\newcommand{\qa}[2]{\par\medskip\noindent\textbf{Q. #1}\par\nobreak\vspace{1pt}\textbf{\color{good}A.} #2\par}
+
+\title{\vspace{-1.2cm}\textbf{Netra: Every Concept, Explained Simply}\\[2mm]
+\large A plain-language companion for the viva}
+\author{Computer Networks Course Case Study}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{saybox}
+\textbf{How to use this document.} Each term has three parts: what it means in
+plain words, and where it appears in our project. If a teacher points at any part
+of the system and asks ``what is this?'', find the term here and read the first
+two lines. Section~\ref{sec:viva} has direct answers to the questions most likely
+to be asked.
+\end{saybox}
+
+\begin{saybox}
+\textbf{The project in one sentence.} Netra watches network traffic, decides
+whether each connection is normal or an attack using machine learning, blocks the
+attacker automatically, and -- this is the part that is ours -- it can also say
+``I have never seen this before'' instead of guessing, then group those unknown
+connections together and give them a name.
+\end{saybox}
+
+\tableofcontents
+\newpage
+
+%==============================================================
+\section{Computer Networks Concepts}
+%==============================================================
+
+\subsection{The basics of how data travels}
+
+\term{Packet}
+{The smallest unit of data sent over a network. A big file is cut into many
+small packets, each with an address label (header) and a piece of the data
+(payload). They travel separately and are reassembled at the other end.}
+{Our sniffer captures packets one by one. The signature rules look at individual
+packets, which is why they can react in about one second.}
+
+\term{Header and Payload}
+{The header is the envelope (who sent it, who receives it, how big it is). The
+payload is the letter inside (the actual data).}
+{We only read headers and sizes, never the payload. This is why we cannot detect
+a SQL injection well: the attack is written inside the payload, and we do not
+look there.}
+
+\term{Protocol}
+{An agreed set of rules for how two computers talk, so both sides understand each
+other. Like a language with grammar.}
+{We mainly deal with TCP, UDP and HTTP.}
+
+\term{IP Address}
+{The unique number that identifies a computer on a network, for example
+\texttt{192.168.10.50}. Like a house address.}
+{Every alert names a source IP (the attacker) and a destination IP (the victim).
+When we block, we block an IP address.}
+
+\term{Port}
+{A numbered door on a computer. One computer runs many services, and each service
+listens on its own port: web = 80, secure web = 443, SSH = 22, FTP = 21.}
+{A port scan is an attacker knocking on many doors to see which are open. Our
+\texttt{port\_scan} rule counts how many different ports one source touches.}
+
+\term{Socket / 5-tuple}
+{The five things that uniquely identify one conversation: source IP, source port,
+destination IP, destination port, and protocol.}
+{We group packets into flows using exactly this 5-tuple.}
+
+\term{TCP (Transmission Control Protocol)}
+{A reliable protocol. It checks that everything arrived, in order, and resends
+anything lost. It sets up a connection first (the three-way handshake) before
+sending data.}
+{Most attacks in our dataset are TCP-based.}
+
+\term{UDP (User Datagram Protocol)}
+{A fast but unreliable protocol. It just sends, without checking whether anything
+arrived. Used for video calls and DNS, where speed matters more than perfection.}
+{Present in the traffic, but our main attacks are TCP.}
+
+\term{Three-way handshake}
+{How a TCP connection starts: the client sends SYN (``can we talk?''), the server
+replies SYN-ACK (``yes, can we?''), the client sends ACK (``yes''). Now the
+connection is open.}
+{A SYN flood abuses this: the attacker sends thousands of SYNs and never replies
+with ACK, so the server keeps thousands of half-open connections waiting.}
+
+\term{TCP flags}
+{Single on/off bits in the TCP header that say what a packet is for.
+SYN = start, ACK = acknowledge, FIN = finish politely, RST = cut off abruptly,
+PSH = deliver this now.}
+{Our signature rules read real flags from real packets. Important: we found the
+flag counters in the CIC-IDS2017 \emph{dataset} are wrong, so the machine learning
+models were \textbf{not} trained on them. This is one of our key findings.}
+
+\term{Flow}
+{One complete conversation between two machines: all the packets of the same
+5-tuple, grouped together, with statistics such as how long it lasted, how many
+packets and bytes went each way, and the gaps between packets.}
+{This is the unit our machine learning models score. We turn packets into flows,
+then classify each flow.}
+
+\term{Bidirectional flow (forward and backward)}
+{A conversation has two directions. Forward is from whoever spoke first;
+backward is the reply direction.}
+{Many of our features are split this way, for example ``Bwd Packets/s''
+(backward packets per second). An attack that sends a lot but receives nothing
+back shows up clearly here.}
+
+\term{Inter-Arrival Time (IAT)}
+{The gap in time between one packet and the next.}
+{A slow attack has very large gaps. ``Flow IAT Mean'' is one of the features that
+gives away a slowloris attack.}
+
+\subsection{Network devices and layout}
+
+\term{Switch}
+{A device that connects computers inside one local network and forwards frames
+only to the correct port.}
+{In our Packet Tracer topology, switches connect the campus VLANs.}
+
+\term{Router}
+{A device that connects different networks together and chooses the path packets
+take between them.}
+{Connects our campus, DMZ and WAN segments in the topology.}
+
+\term{Firewall}
+{A device or software that allows or blocks traffic based on rules.}
+{Our response layer writes real firewall rules using \texttt{iptables}.}
+
+\term{iptables}
+{The firewall built into Linux. You give it rules such as ``drop everything from
+this IP''.}
+{Netra creates its own rule chain called \texttt{NETRA}, so every rule it adds can
+be inspected and removed with one command. Rules expire automatically.}
+
+\term{DMZ (Demilitarised Zone)}
+{A separate network segment for servers that must be reachable from the internet
+(like a web server), kept apart from the internal network so that if the server is
+hacked, the attacker is not immediately inside the company.}
+{In our topology, the protected web server sits in the DMZ and a Netra sensor
+watches it.}
+
+\term{VLAN (Virtual LAN)}
+{A way to split one physical switch into several separate logical networks, so
+departments cannot see each other's traffic.}
+{Used in the campus part of the topology.}
+
+\term{SPAN port / port mirroring}
+{A switch feature that copies all traffic passing through it to one monitoring
+port, so a security tool can watch without being in the way.}
+{This is how an IDS like Netra would be deployed in a real network.}
+
+\term{Promiscuous mode}
+{A network card setting that makes it accept all packets it sees, not only those
+addressed to it. Required for monitoring.}
+{Our sniffer needs this to capture traffic.}
+
+\term{Bandwidth, Throughput and Latency}
+{Bandwidth is the maximum capacity of a link. Throughput is how much you actually
+get. Latency is the delay before data arrives.}
+{A DoS attack attacks all three: it fills the bandwidth, collapses throughput for
+real users, and increases latency.}
+
+%==============================================================
+\section{Cybersecurity Concepts}
+%==============================================================
+
+\subsection{Core ideas}
+
+\term{CIA Triad}
+{The three goals of security. \textbf{Confidentiality} (only the right people can
+read it), \textbf{Integrity} (nobody changed it secretly),
+\textbf{Availability} (the service is up when needed).}
+{Our project mainly defends \emph{Availability}, because most attacks we detect
+(DoS, DDoS, slowloris) try to take a service down.}
+
+\term{IDS (Intrusion Detection System)}
+{A system that watches traffic and raises an alarm when it sees an attack. It only
+warns; it does not stop anything.}
+{Netra is an IDS plus more.}
+
+\term{IPS (Intrusion Prevention System)}
+{Same as an IDS, but it also acts: it blocks the attacker.}
+{Netra is an IPS, because it writes firewall rules automatically. This is the ``R''
+in NETRA -- Automated \emph{response}.}
+
+\term{Signature-based detection}
+{Detect attacks by matching known patterns, like an antivirus matching known
+viruses. Very accurate for known attacks, completely blind to new ones.}
+{We have four signature rules: SYN flood, port scan, slow DoS, and brute force.
+They fire in about one second because they work on packets directly.}
+
+\term{Anomaly-based detection}
+{Learn what normal looks like, then flag anything that is different. Can catch new
+attacks, but produces more false alarms.}
+{Our autoencoder does this. It was trained only on normal traffic and never saw an
+attack during training.}
+
+\term{Zero-day attack}
+{An attack nobody has seen before, so no signature exists for it and no training
+data contains it.}
+{This is the central problem our project addresses. We simulate it by removing one
+attack type completely from training and then testing against it.}
+
+\term{False Positive and False Negative}
+{A false positive is a false alarm: normal traffic reported as an attack. A false
+negative is a miss: a real attack that was not reported.}
+{False positives are expensive because they block innocent users. Our full model
+has a false-positive rate of 0.00112, meaning about 1 in 900 normal flows is
+wrongly flagged.}
+
+\term{Defence in depth}
+{Do not rely on one protection. Use several layers so that if one fails, another
+catches the problem.}
+{Netra has four detection layers: rules, two trained classifiers, an autoencoder,
+and the open-set test.}
+
+\term{Attack surface}
+{Everything an attacker could possibly target: every open port, service and
+input.}
+{Reducing it (closing unused ports) is a basic defence; a port scan is an attacker
+measuring it.}
+
+\subsection{The attacks we detect}
+
+\term{DoS (Denial of Service)}
+{One machine overwhelms a server with requests so real users cannot get through.}
+{Classes \texttt{DoS} (tools: Hulk, GoldenEye) in our dataset.}
+
+\term{DDoS (Distributed Denial of Service)}
+{Same idea, but from many machines at once, so it is far harder to block and much
+harder to tell apart from a crowd of real users.}
+{Class \texttt{DDoS}. In our test split it is 19,201 flows.}
+
+\term{Slowloris / Slow DoS}
+{A clever, quiet DoS. Instead of flooding, it opens many connections and sends
+data extremely slowly, keeping every connection alive and using up all the
+server's connection slots with almost no bandwidth.}
+{Class \texttt{DoS-Slow}. It is the attack our open-set layer detects best,
+because its timing pattern is very unusual.}
+
+\term{SYN flood}
+{A DoS that sends thousands of SYN packets and never completes the handshake,
+filling the server's table of half-open connections.}
+{Detected by our \texttt{syn\_flood} signature rule at over 100 SYN per second
+from one source.}
+
+\term{Port scan}
+{Probing many ports on a target to find which services are running. Usually the
+first step of an attack -- reconnaissance.}
+{Class \texttt{PortScan}; also caught by a rule at more than 30 distinct ports in
+5 seconds.}
+
+\term{Brute force attack}
+{Trying username and password combinations repeatedly until one works.}
+{Class \texttt{BruteForce} (tools: FTP-Patator and SSH-Patator). Our rule watches
+for many HTTP 401 ``Unauthorized'' replies or many new connections to login ports.}
+
+\term{Botnet / Bot}
+{A network of infected computers controlled remotely by an attacker. Each infected
+machine quietly ``calls home'' to a command-and-control server.}
+{Class \texttt{Bot}. It is the hardest class for us, because a bot checking in
+looks like ordinary small web traffic.}
+
+\term{Web attack (SQL Injection, XSS, Brute Force)}
+{Attacks that abuse a website's input fields. SQL injection tricks the database
+into running the attacker's commands; XSS injects scripts into pages other users
+view.}
+{Class \texttt{WebAttack}. We detect it poorly in live mode and we explain
+honestly why: the attack is in the payload text, and we only read flow statistics.}
+
+\term{Infiltration and Heartbleed}
+{Two more classes present in CIC-IDS2017. Heartbleed had only 11 examples, far too
+few to learn from.}
+{We dropped classes with fewer than 100 rows, which is why our final class list has
+eight entries.}
+
+\subsection{Response}
+
+\term{Blocking vs Quarantine (rate limiting)}
+{Blocking drops all traffic from an address. Quarantine is gentler: it allows a
+few packets per second and drops the rest, which slows an attacker without fully
+cutting off a possibly innocent user.}
+{High severity blocks for 120 seconds; medium severity quarantines at 10 packets
+per second for 60 seconds; low severity is only recorded.}
+
+\term{Timed and reversible response}
+{Every automatic block expires by itself after a set time and can be undone
+manually.}
+{This is our main safety argument: the worst case of a false positive is a short,
+bounded outage for one address, not a permanent ban.}
+
+\term{Never-block list (allow list)}
+{A list of addresses that must never be blocked, no matter what.}
+{Protects loopback, the gateways and the protected server itself, so the system
+cannot cut off its own network.}
+
+%==============================================================
+\section{Machine Learning Concepts}
+%==============================================================
+
+\subsection{The fundamentals}
+
+\term{Machine Learning}
+{Instead of writing rules by hand, you show a program many labelled examples and it
+works out the rules itself.}
+{We show it 635,280 example flows labelled Benign, DoS, DDoS and so on, and it
+learns to tell them apart.}
+
+\term{Feature}
+{One measurable property of a thing, used as input to the model. For a flow:
+duration, packets per second, average packet size, and so on.}
+{We use 59 features in the full model and 6 in the lite model.}
+
+\term{Label / Class}
+{The correct answer for a training example.}
+{Our eight classes: Benign, Bot, BruteForce, DDoS, DoS, DoS-Slow, PortScan,
+WebAttack.}
+
+\term{Supervised learning}
+{Learning from examples that come with the correct answer.}
+{Our Random Forest and XGBoost are supervised.}
+
+\term{Unsupervised learning}
+{Learning from data with no answers given; the model finds structure by itself.}
+{Our autoencoder and our family clustering are unsupervised.}
+
+\term{Training, Validation and Test sets}
+{Split the data in three. \textbf{Train} teaches the model. \textbf{Validation}
+tunes choices and picks the best model. \textbf{Test} is touched only at the very
+end, to get an honest score.}
+{Train 635,280 flows, validation 329,392, test 329,392. We never trained on the
+test set.}
+
+\term{Overfitting}
+{When a model memorises the training data instead of learning the general pattern.
+It scores brilliantly on data it has seen and badly on anything new.}
+{We guard against it with a separate test set -- and our cross-dataset experiment
+shows a deeper version of this problem, where the model learned the \emph{network}
+rather than the attack.}
+
+\term{Feature scaling / Normalisation}
+{Putting all features on a comparable range, so a feature measured in millions
+does not drown out one measured in single digits.}
+{We apply \texttt{sign(x)*log(1+|x|)} first, to squash very large values, then
+standardise. The scaler is fitted on the training data only.}
+
+\term{Class imbalance}
+{When one class has far more examples than the others. Benign traffic hugely
+outnumbers attacks, so a lazy model could call everything Benign and still be
+99\% ``accurate''.}
+{We handle it with balanced class weights, and we report \emph{macro} F1, which
+gives every class equal importance regardless of size.}
+
+\subsection{The models we used}
+
+\term{Decision Tree}
+{A flowchart of yes/no questions. ``Is packets per second above 500? If yes, ask
+the next question; if no, call it Benign.''}
+{The building block of our main model.}
+
+\term{Random Forest}
+{Many decision trees, each trained on a random part of the data and random
+features. They vote, and the majority wins. Much more reliable than one tree.}
+{Our selected model, with 100 trees. It won on validation macro F1 for both
+feature sets.}
+
+\term{XGBoost (Gradient Boosting)}
+{Also many trees, but built one after another, where each new tree tries to fix
+the mistakes of the ones before it.}
+{We trained it as a competitor. It scored very slightly lower on macro F1, so the
+Random Forest was selected.}
+
+\term{Autoencoder}
+{A neural network shaped like an hourglass. It is trained to squeeze data into a
+small summary and then rebuild the original from it. Trained only on normal
+traffic, it rebuilds normal traffic well and unusual traffic badly.}
+{Our shape is 59-32-16-8-16-32-59. The rebuilding error is the anomaly score: a
+high error means ``this does not look like anything normal''.}
+
+\term{Reconstruction error}
+{How different the autoencoder's rebuilt version is from the original input.}
+{If it goes above a threshold (the 99th percentile of errors on normal traffic),
+we call the flow anomalous.}
+
+\term{Threshold}
+{The cut-off that turns a score into a yes/no decision.}
+{Our autoencoder threshold is 0.1463, taken from the dataset. We also wrote a
+\texttt{calibrate} command that re-derives it from the real network being watched.}
+
+\subsection{Measuring how good a model is}
+
+\term{Confusion Matrix}
+{A table showing, for each true class, what the model actually predicted. The
+diagonal is correct; everything off the diagonal is a mistake.}
+{We generate one for each model in \texttt{reports/}.}
+
+\term{Accuracy}
+{The share of all predictions that were correct. Misleading when classes are
+imbalanced.}
+{Ours is 0.9987, but we do not lead with it, for exactly that reason.}
+
+\term{Precision}
+{Of everything the model called an attack, how much really was an attack.
+``When it shouts, is it right?''}
+{Low precision means many false alarms.}
+
+\term{Recall (Detection Rate)}
+{Of all the real attacks, how many the model caught. ``Does it miss things?''}
+{Our full model's detection rate is 0.9980.}
+
+\term{F1 score}
+{A single number balancing precision and recall (their harmonic mean). Useful when
+you care about both.}
+{Our headline number is \textbf{macro} F1 = 0.9570.}
+
+\term{Macro F1 vs Weighted F1}
+{Macro averages the F1 of each class equally, so a tiny class counts as much as a
+huge one. Weighted averages by class size, so big classes dominate.}
+{We select models on macro F1 so that rare attacks are not ignored.}
+
+\term{ROC-AUC}
+{A score from 0.5 (useless, same as guessing) to 1.0 (perfect) measuring how well
+a model separates two groups across every possible threshold.}
+{Our autoencoder reaches 0.9603.}
+
+\term{False Positive Rate (FPR)}
+{The share of normal traffic wrongly flagged.}
+{0.00112 for the full model. On 278,975 benign test flows this is 313 false
+alarms.}
+
+%==============================================================
+\section{The New Ideas in Our Project}
+%==============================================================
+
+\begin{saybox}
+This section is the part that makes our project different from a standard
+``train a classifier on CIC-IDS2017'' project. Expect questions here.
+\end{saybox}
+
+\term{Closed-set classification (the problem)}
+{A trained classifier can only answer with classes it was taught. Ask it about
+something new and it must still pick one of its eight answers -- it has no option
+for ``none of these''. It is like a multiple-choice exam with no ``none of the
+above''.}
+{We proved the damage: when we remove an attack class from training and then show
+it to the model, in 6 out of 7 cases the model calls most of that attack
+\emph{Benign} and says nothing at all.}
+
+\term{Open-set recognition (our solution)}
+{Give the system a ninth possible answer: ``this matches nothing I was trained
+on''.}
+{Implemented in \texttt{src/models/openset.py}. It sits after the classifiers:
+if they say Benign, we double-check whether the flow actually resembles anything
+we have seen.}
+
+\term{Nearest-neighbour distance}
+{To judge whether a new flow resembles class X, measure how far it is from the
+10 closest training examples of class X. Close means familiar; far means strange.}
+{This is our ``non-conformity score''.}
+
+\term{Conformal p-value}
+{A fair way to turn a distance into a probability-like number between 0 and 1. It
+asks: ``among genuine members of this class, what fraction were at least this
+strange?'' A p-value of 0.5 means perfectly typical; 0.001 means extremely
+unusual.}
+{The key benefit: if we reject everything below a level $\alpha$, then exactly
+$\alpha$ of genuinely normal traffic gets rejected. The cost is known \emph{in
+advance} instead of being tuned by trial and error.}
+
+\term{Alpha ($\alpha$), the significance level}
+{The dial that decides how suspicious we need to be. $\alpha = 0.05$ means we
+accept sending 5\% of known traffic to the ``unknown'' path.}
+{We promised 0.05 and measured 0.0468 on the test data. The promise held at every
+level we tried, from 0.01 to 0.5.}
+
+\term{Mahalanobis distance and whitening}
+{Ordinary straight-line distance is unfair when some features vary much more than
+others. Mahalanobis distance accounts for how spread out the data is in each
+direction. ``Whitening'' transforms the space so that ordinary distance becomes
+this fairer distance.}
+{We use it so that all 59 features count sensibly.}
+
+\term{Why a single Gaussian failed (an honest negative result)}
+{The textbook method models each class as one bell-shaped cloud. Normal network
+traffic is not one cloud -- it is several separate clouds (web browsing, DNS, file
+transfer, idle). One big ellipse drawn around them also covers the empty space
+between them, so strange traffic lands in that empty space and is accepted.}
+{Measured: on the UNSW-NB15 dataset, this method rejected only 0.22\% of a
+completely foreign network. Our nearest-neighbour method rejected 95.09\%.}
+
+\term{Clustering}
+{Grouping similar things together without being told the groups in advance.}
+{We cluster the rejected flows so that one new attack becomes one object the
+operator can look at, instead of hundreds of separate alarms.}
+
+\term{Cosine distance (direction, not size)}
+{Measures whether two things point the same way, ignoring how big they are.}
+{We group flows by the \emph{direction} in which they differ from normal. This
+means the same attack run gently and run aggressively lands in the same family.
+Using plain distance instead broke one attack into 24 separate groups.}
+
+\term{Unknown family}
+{A cluster of unrecognised flows, given a permanent name like
+\texttt{NETRA-U001}, with a fingerprint of what makes it odd and the closest class
+we do know.}
+{An alert now reads: \emph{``NETRA-U001: 47 unrecognised flows from 3 sources.
+Flow IAT Mean = 10.5 s, no backward packets. Nearest known class DoS-Slow,
+p = 0.004''} -- instead of the old, useless \emph{``Anomaly (unknown)''}.}
+
+\term{Promotion (the human in the loop)}
+{An analyst looks at a family, decides what it is, and gives it a real name. Every
+future alert about that family uses that name, and the name survives restarts.}
+{This is deliberate: the computer can prove something is new and describe it, but
+only a human can say what it is.}
+
+\term{Leave-one-class-out testing}
+{To test fairly whether we detect unknown attacks, remove one attack class
+completely -- from training, from the scaling, from the calibration -- then show it
+to the system. It has genuinely never seen it.}
+{We repeat this for all seven attack classes. This is our zero-day experiment.}
+
+\term{Cross-dataset evaluation}
+{Train on one dataset, test on a completely different one captured by other
+researchers on another network.}
+{Our most important negative result: detection falls from 0.9976 to 0.0003,
+because the model learned the packet rates of \emph{that particular network},
+not what an attack looks like.}
+
+\term{Domain shift}
+{When the data a model meets in the real world is different from what it was
+trained on, so its answers quietly become wrong.}
+{Our open-set layer detects this: on UNSW-NB15 it reports 95.09\% of traffic as
+unrecognised, versus 4.68\% at home. That is a sensor correctly saying ``I do not
+belong here'', which a normal classifier can never say.}
+
+\term{Explainability (Saabas decomposition)}
+{Rather than just saying ``attack'', the system shows which features caused that
+decision. For a Random Forest this can be computed exactly, by following the path
+each tree took.}
+{Our alerts read: \emph{``DoS-Slow predicted with confidence 0.97, driven by
+Bwd Packets/s = 0.0, Flow Packets/s = 0.111, Flow IAT Mean = 10500000''}.}
+
+%==============================================================
+\section{The Numbers You Should Know}
+%==============================================================
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Thing} & \textbf{Number} & \textbf{What it means} \\
+\midrule
+Dataset & CIC-IDS2017 & 2,830,743 flows loaded; 2,195,946 after cleaning \\
+Classes & 8 & Benign + 7 attack types \\
+Features & 59 full, 6 lite & lite = computable live from packets \\
+Split & 635,280 / 329,392 / 329,392 & train / validation / test \\
+Full model & Random Forest & macro F1 \textbf{0.9570}, accuracy 0.9987 \\
+Detection rate & 0.9980 & 50,314 of 50,417 attack flows caught \\
+False-positive rate & 0.00112 & 313 of 278,975 benign flows \\
+Lite model & macro F1 0.8400 & the one that runs on live packets \\
+Autoencoder & ROC-AUC 0.9603 & never saw an attack in training \\
+Cross-dataset & 0.9976 $\rightarrow$ 0.0003 & the model does not transfer \\
+Open-set promise & $\alpha$ = 0.05 & measured 0.0468 on known traffic \\
+Zero-day (DoS-Slow) & 0.835 $\rightarrow$ 0.016 & share of attack nobody would see \\
+Domain shift & 95.09\% vs 4.68\% & unknown rate abroad vs at home \\
+Families & 5 of 7 found & purity 0.991, 16 false families \\
+Tests & 96 passing & automated test suite \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%==============================================================
+\section{Questions a Teacher May Ask}
+\label{sec:viva}
+%==============================================================
+
+\qa{What exactly does your project do?}
+{It watches network traffic, converts packets into flows, and scores each flow
+with signature rules, two machine learning classifiers and an autoencoder. If it
+finds an attack it automatically writes a temporary firewall rule to block the
+source. On top of that, it can report that a flow matches none of the attack types
+it knows, group such flows into named families, and let an analyst name them.}
+
+\qa{Why machine learning? The rules already catch the attacks in your demo.}
+{Rules only catch attacks someone already thought of and wrote down. The models
+classify flows the rules say nothing about, and the autoencoder needs no attack
+labels at all. The demo deliberately uses attacks the rules cover, because that
+makes it fire in one second in front of an audience.}
+
+\qa{What is the difference between IDS and IPS? Which is yours?}
+{An IDS only detects and alerts. An IPS also acts to stop the attack. Ours is an
+IPS, because it writes real iptables rules. Every rule is timed and reversible.}
+
+\qa{Why did you use a Random Forest instead of deep learning?}
+{We compared it against XGBoost on validation macro F1 and Random Forest won. It
+also trains in about 31 seconds, scores a flow in 2.5 microseconds, and -- most
+usefully -- its decisions can be explained exactly, feature by feature. A deep
+network would be slower and harder to justify to an operator.}
+
+\qa{Your accuracy is 99.87\%. Is the problem solved?}
+{No, and that number is the least interesting one in the report. It describes
+CIC-IDS2017, not intrusion detection. We tested the same model on UNSW-NB15 and
+detection collapsed from 99.76\% to 0.03\%, because it had learned the packet
+rates of one particular network. Reporting only in-domain accuracy hides this.}
+
+\qa{What is the novelty? Isn't this just a classifier on a public dataset?}
+{The novelty is that our system can refuse to answer. A classifier always returns
+one of its trained classes, so a new attack is silently labelled Benign -- we
+measured this happening in 6 of 7 cases. We added a conformal open-set test whose
+false-alarm cost is fixed mathematically in advance, and an online clusterer that
+turns the rejected flows into named families with readable fingerprints.}
+
+\qa{How can you set a threshold without having seen the new attacks?}
+{That is exactly why we used a conformal test. The threshold is a significance
+level: $\alpha$ is the fraction of genuinely normal traffic that will be rejected,
+guaranteed by construction. So we choose it from our false-alarm budget, not by
+fitting to attack data. We promised 0.05 and measured 0.0468.}
+
+\qa{How do you know a discovered family is real and not random noise?}
+{Three ways. Purity across the folds is 0.991, meaning families do not mix the new
+attack with normal traffic. The largest family's precision averages 0.909. And the
+families turned out to match the individual attack \emph{tools}: one family was
+274 FTP-Patator flows, another was 2,639 Hulk flows with no GoldenEye at all --
+a distinction finer than the labels we trained on.}
+
+\qa{What stops it blocking innocent users?}
+{Four things: weak evidence needs three flagged flows from the same source within
+10 seconds; an unknown family must grow to 50 flows before it is reported; every
+block expires on its own; and a never-block list protects critical addresses.}
+
+\qa{What is your biggest weakness?}
+{We never read packet contents, so web attacks are nearly invisible to us. We
+measured this precisely: held-out WebAttack flows are ranked as \emph{more} normal
+than normal traffic, because a SQL injection at the flow-statistics level is just
+a small HTTP request. No threshold can fix that; only payload inspection can.}
+
+\qa{Did anything fail during the project?}
+{Several things, and they are in the report. The dataset's TCP flag counters are
+broken, so we removed all twelve. The model does not transfer to another network.
+A single-Gaussian open-set test rejected nothing. Plain-distance clustering broke
+one attack into 24 pieces. And our first idea for deciding which families to
+report -- demanding a stronger statistical rejection -- reported only 1 of 7 real
+attacks, so we replaced it with a size threshold chosen from a measured curve.}
+
+\qa{What would you do next?}
+{Add payload inspection for web attacks, feed named families back into training so
+each discovery becomes a new class, and correlate alerts into attack campaigns so
+a multi-stage intrusion reads as one story instead of dozens of alerts.}
+
+\vfill
+\begin{saybox}
+\textbf{If you only remember one thing:} every intrusion detection system can tell
+you what it recognises. Ours can also tell you, in a mathematically controlled
+way, when it recognises \emph{nothing} -- and then describe what it found so a
+person can name it.
+\end{saybox}
+
+\end{document}
