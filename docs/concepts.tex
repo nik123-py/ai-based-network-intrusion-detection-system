@@ -147,7 +147,59 @@ back shows up clearly here.}
 {A slow attack has very large gaps. ``Flow IAT Mean'' is one of the features that
 gives away a slowloris attack.}
 
-\subsection{Which protocols this project actually uses}
+\subsection{Network devices and layout}
+
+\term{Switch}
+{A device that connects computers inside one local network and forwards frames
+only to the correct port.}
+{In our Packet Tracer topology, switches connect the campus VLANs.}
+
+\term{Router}
+{A device that connects different networks together and chooses the path packets
+take between them.}
+{Connects our campus, DMZ and WAN segments in the topology.}
+
+\term{Firewall}
+{A device or software that allows or blocks traffic based on rules.}
+{Our response layer writes real firewall rules using \texttt{iptables}.}
+
+\term{iptables}
+{The firewall built into Linux. You give it rules such as ``drop everything from
+this IP''.}
+{Netra creates its own rule chain called \texttt{NETRA}, so every rule it adds can
+be inspected and removed with one command. Rules expire automatically.}
+
+\term{DMZ (Demilitarised Zone)}
+{A separate network segment for servers that must be reachable from the internet
+(like a web server), kept apart from the internal network so that if the server is
+hacked, the attacker is not immediately inside the company.}
+{In our topology, the protected web server sits in the DMZ and a Netra sensor
+watches it.}
+
+\term{VLAN (Virtual LAN)}
+{A way to split one physical switch into several separate logical networks, so
+departments cannot see each other's traffic.}
+{Used in the campus part of the topology.}
+
+\term{SPAN port / port mirroring}
+{A switch feature that copies all traffic passing through it to one monitoring
+port, so a security tool can watch without being in the way.}
+{This is how an IDS like Netra would be deployed in a real network.}
+
+\term{Promiscuous mode}
+{A network card setting that makes it accept all packets it sees, not only those
+addressed to it. Required for monitoring.}
+{Our sniffer needs this to capture traffic.}
+
+\term{Bandwidth, Throughput and Latency}
+{Bandwidth is the maximum capacity of a link. Throughput is how much you actually
+get. Latency is the delay before data arrives.}
+{A DoS attack attacks all three: it fills the bandwidth, collapses throughput for
+real users, and increases latency.}
+
+%==============================================================
+\section{Protocols Used in This Project}
+%==============================================================
 
 \begin{saybox}
 If the teacher asks \textit{``which protocols does your project use?''}, the short
@@ -213,56 +265,6 @@ network where the web server sits elsewhere.}
 sizes, the direction and the number of packets are all still visible.}
 {This is why our flow-statistics approach still works on the 69,787 HTTPS flows
 in the data, and also why it cannot detect a web attack hidden inside them.}
-
-\subsection{Network devices and layout}
-
-\term{Switch}
-{A device that connects computers inside one local network and forwards frames
-only to the correct port.}
-{In our Packet Tracer topology, switches connect the campus VLANs.}
-
-\term{Router}
-{A device that connects different networks together and chooses the path packets
-take between them.}
-{Connects our campus, DMZ and WAN segments in the topology.}
-
-\term{Firewall}
-{A device or software that allows or blocks traffic based on rules.}
-{Our response layer writes real firewall rules using \texttt{iptables}.}
-
-\term{iptables}
-{The firewall built into Linux. You give it rules such as ``drop everything from
-this IP''.}
-{Netra creates its own rule chain called \texttt{NETRA}, so every rule it adds can
-be inspected and removed with one command. Rules expire automatically.}
-
-\term{DMZ (Demilitarised Zone)}
-{A separate network segment for servers that must be reachable from the internet
-(like a web server), kept apart from the internal network so that if the server is
-hacked, the attacker is not immediately inside the company.}
-{In our topology, the protected web server sits in the DMZ and a Netra sensor
-watches it.}
-
-\term{VLAN (Virtual LAN)}
-{A way to split one physical switch into several separate logical networks, so
-departments cannot see each other's traffic.}
-{Used in the campus part of the topology.}
-
-\term{SPAN port / port mirroring}
-{A switch feature that copies all traffic passing through it to one monitoring
-port, so a security tool can watch without being in the way.}
-{This is how an IDS like Netra would be deployed in a real network.}
-
-\term{Promiscuous mode}
-{A network card setting that makes it accept all packets it sees, not only those
-addressed to it. Required for monitoring.}
-{Our sniffer needs this to capture traffic.}
-
-\term{Bandwidth, Throughput and Latency}
-{Bandwidth is the maximum capacity of a link. Throughput is how much you actually
-get. Latency is the delay before data arrives.}
-{A DoS attack attacks all three: it fills the bandwidth, collapses throughput for
-real users, and increases latency.}
 
 %==============================================================
 \section{Cybersecurity Concepts}
