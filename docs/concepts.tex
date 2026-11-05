@@ -147,6 +147,73 @@ back shows up clearly here.}
 {A slow attack has very large gaps. ``Flow IAT Mean'' is one of the features that
 gives away a slowloris attack.}
 
+\subsection{Which protocols this project actually uses}
+
+\begin{saybox}
+If the teacher asks \textit{``which protocols does your project use?''}, the short
+answer is: \textbf{IPv4 with TCP and UDP} at the network and transport layers,
+and above them \textbf{HTTP, HTTPS, DNS, FTP, SSH, Telnet, RDP, NTP and SMB}.
+The system itself talks \textbf{WebSocket} and \textbf{HTTP REST} internally and
+enforces decisions through \textbf{iptables}. The table below is the full list,
+with the real traffic counts from our test data.
+\end{saybox}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}p{1.6cm}p{2.2cm}p{1.6cm}p{7.4cm}@{}}
+\toprule
+\textbf{Layer} & \textbf{Protocol} & \textbf{Port / no.} & \textbf{How it is used in Netra} \\
+\midrule
+Link & Ethernet & -- & Carries every frame on the Docker lab bridge. \\
+Internet & IPv4 & -- & The only address family we parse. Gives us source and destination IP. \\
+Internet & ARP & -- & Resolves addresses on the lab network. Seen but not parsed. \\
+Internet & ICMP & proto 1 & \textit{Not parsed.} A stated limitation: a ping flood would be missed. \\
+Transport & TCP & proto 6 & The main protocol. We read flags, window size and the handshake. All four lab attacks are TCP. \\
+Transport & UDP & proto 17 & Parsed, but has no flags or connection state. Carries DNS and NTP. \\
+\midrule
+Application & DNS & 53 (UDP) & 129,011 flows, the commonest port in our test split. Normal background traffic. \\
+Application & HTTP & 80 & 80,737 flows. The victim web server, the slowloris target and the brute-force target. \\
+Application & HTTPS / TLS & 443 & 69,787 flows. Encrypted, so we see only the shape of the traffic, never the content. \\
+Application & NTP & 123 & 3,143 flows. Time synchronisation, benign background. \\
+Application & SSH & 22 & 1,509 flows. Target of the SSH-Patator brute force. A watched login port. \\
+Application & FTP & 21 & 1,401 flows. Target of the FTP-Patator brute force. A watched login port. \\
+Application & Telnet & 23 & A watched login port in the brute-force rule. \\
+Application & RDP & 3389 & A watched login port in the brute-force rule. \\
+Application & SMB / NetBIOS & 445, 139 & Windows file sharing in the benign traffic, and a port-scan target. \\
+Application & LDAP & 389 & Directory lookups in the benign background traffic. \\
+Application & HTTP-alt & 8080 & Where the Bot class contacts its command-and-control server. \\
+\midrule
+System & WebSocket & 8000 & Carries live events from the detection engine to the desktop app. \\
+System & HTTP REST & 8000 & The control API: status, alerts, blocks, and naming a family. \\
+System & iptables & -- & Not a protocol but the mechanism: how a decision becomes an enforced rule. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\term{Why only TCP and UDP?}
+{Our packet parser returns nothing for anything that is not IPv4 carrying TCP or
+UDP. Those two cover essentially all the attack traffic in CIC-IDS2017 and all
+four of our lab attacks.}
+{It also means ICMP-based attacks, such as a ping flood or an ICMP tunnel, would
+pass us completely. This is an honest limitation, not an oversight, and it is
+written in the report.}
+
+\term{Protocol as a feature}
+{The protocol number itself (6 for TCP, 17 for UDP) is one of the 59 inputs the
+model sees, so the model can learn that certain attacks only occur over certain
+protocols.}
+{Destination port, by contrast, is deliberately \emph{excluded}. In this dataset
+nearly every denial-of-service row targets port 80, so a model allowed to use
+the port would simply memorise ``port 80 means DoS'' and would fail on any
+network where the web server sits elsewhere.}
+
+\term{Encrypted traffic (HTTPS)}
+{TLS hides the content of a conversation but not its shape: the timing, the
+sizes, the direction and the number of packets are all still visible.}
+{This is why our flow-statistics approach still works on the 69,787 HTTPS flows
+in the data, and also why it cannot detect a web attack hidden inside them.}
+
 \subsection{Network devices and layout}
 
 \term{Switch}

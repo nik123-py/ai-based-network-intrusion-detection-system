@@ -369,24 +369,60 @@ class FamilyTable(QTableWidget):
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
         self.verticalHeader().setDefaultSectionSize(34)
         self.families: list[dict] = []
+        self._last_signature: list | None = None
+
+    @staticmethod
+    def _signature(families: list[dict]):
+        """What has to change before the table is worth touching."""
+        return [(f["id"], f.get("flows"), f.get("label"), f.get("n_sources"),
+                 f.get("nearest_class"), f.get("alertable")) for f in families]
 
     def set_families(self, families: list[dict]) -> None:
+        """Refresh the table, doing as little work as possible.
+
+        The engine republishes its whole family list on every update, so this
+        is called often. Rebuilding the rows each time means destroying and
+        recreating a QPushButton per row, which is expensive enough to make the
+        whole window feel sluggish once a dozen families exist. So: skip
+        entirely when nothing changed, and when only the counts moved, write
+        the new text into the existing cells and leave the widgets alone.
+        """
+        signature = self._signature(families)
+        if signature == self._last_signature:
+            self.families = families
+            return
+        same_rows = (len(families) == self.rowCount()
+                     and [f["id"] for f in families] == [f["id"] for f in self.families])
         self.families = families
-        self.setRowCount(len(families))
+        self._last_signature = signature
+        if not same_rows:
+            self.setRowCount(len(families))
         for row, f in enumerate(families):
             named = bool(f.get("promoted_name"))
-            label = _item(f.get("label", f["id"]), STATUS["good"] if named else None)
-            label.setToolTip(f.get("description", ""))
             nearest = f.get("nearest_class") or "nothing close"
             if f.get("nearest_class"):
                 nearest = f"{nearest} (p={f.get('nearest_p', 0):.3f})"
+            values = [f.get("label", f["id"]), str(f.get("flows", 0)),
+                      str(f.get("n_sources", 0)), nearest,
+                      fingerprint_text(f.get("fingerprint", []))]
+            if same_rows and self.item(row, 0) is not None:
+                for col, text in enumerate(values):
+                    self.item(row, col).setText(text)
+                self.item(row, 0).setForeground(
+                    QColor(STATUS["good"]) if named else self.palette().text())
+                button = self.cellWidget(row, 5)
+                if button is not None:
+                    button.setText("Rename" if named else "Name it...")
+                continue
+            label = _item(values[0], STATUS["good"] if named else None)
+            label.setToolTip(f.get("description", ""))
             self.setItem(row, 0, label)
-            self.setItem(row, 1, _item(str(f.get("flows", 0)), align_right=True))
-            self.setItem(row, 2, _item(str(f.get("n_sources", 0)), align_right=True))
-            self.setItem(row, 3, _item(nearest))
-            signature = _item(fingerprint_text(f.get("fingerprint", [])))
-            signature.setToolTip(f.get("description", ""))
-            self.setItem(row, 4, signature)
+            self.setItem(row, 1, _item(values[1], align_right=True))
+            self.setItem(row, 2, _item(values[2], align_right=True))
+            self.setItem(row, 3, _item(values[3]))
+            signature_item = _item(values[4])
+            signature_item.setToolTip(f.get("description", ""))
+            self.setItem(row, 4, signature_item)
             button = QPushButton("Rename" if named else "Name it...")
             button.setObjectName("smallButton")
             button.setMinimumWidth(76)

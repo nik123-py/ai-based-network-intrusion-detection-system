@@ -216,6 +216,7 @@ class DetectionEngine:
         self._weak_evidence: dict[tuple, deque] = {}
         self._lock = threading.Lock()
         self._events = action_logger()
+        self._last_families: list | None = None
         # statistics for the current second
         self._pkts = self._bytes = self._flows = 0
         self.totals = Counter()
@@ -544,7 +545,14 @@ class DetectionEngine:
             })
             self.bus.publish({"type": "blocks", "blocks": self.responder.active()})
             if self.families is not None:
-                self.bus.publish({"type": "families", "families": self.families.snapshot()})
+                # Only publish when something actually changed. The snapshot is
+                # a large payload and every subscriber rebuilds its view from
+                # it, so sending an identical copy once a second is pure cost.
+                snapshot = self.families.snapshot()
+                fingerprint = [(f["id"], f["flows"], f["label"]) for f in snapshot]
+                if fingerprint != self._last_families:
+                    self._last_families = fingerprint
+                    self.bus.publish({"type": "families", "families": snapshot})
 
     def status(self) -> dict:
         importance = []

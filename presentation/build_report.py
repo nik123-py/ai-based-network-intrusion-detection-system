@@ -518,8 +518,9 @@ def lists_page(doc):
         ("5.11", "Laboratory baseline: attacker reaches the victim"),
         ("5.12", "Laboratory after detection: attacker blocked by iptables"),
         ("5.13", "Laboratory after rule expiry: connectivity restored"),
-        ("5.14", "Desktop application with the unknown-families panel"),
-        ("5.15", "Desktop application after an analyst names a family"),
+        ("5.14", "Desktop application during a live laboratory run"),
+        ("5.15", "Desktop application with the unknown-families panel"),
+        ("5.16", "Desktop application after an analyst names a family"),
     ]
     table(doc, ["Figure", "Title", "Page"], [(a, b, "") for a, b in figs],
           widths=[0.9, 4.5, 0.9], size=11)
@@ -527,6 +528,7 @@ def lists_page(doc):
     tabs = [
         ("3.1", "Class distribution after cleaning and splitting"),
         ("3.2", "The six live-computable lite features"),
+        ("3.3", "Protocols observed, parsed and used by the system"),
         ("5.1", "Model comparison on the full feature set"),
         ("5.2", "Per-class results, full Random Forest"),
         ("5.3", "Conformal validity of the open-set test"),
@@ -879,6 +881,68 @@ def chapter3(doc, m):
               "offline accuracy and was necessary for the system to function on real packets. "
               "The flags are still used by the signature rules, which read them from real "
               "packets rather than from the dataset.")
+
+    subsection(doc, "3.2.3 Protocols observed and handled")
+    para(doc, "The packet parser accepts IPv4 datagrams carrying TCP or UDP and returns "
+              "nothing for anything else, so the protocol coverage of the system is defined "
+              "precisely. Table 3.3 lists every protocol the project touches, together with "
+              "the number of flows carrying it in the held-out test split where that figure "
+              "is meaningful.")
+    rows = [
+        ("Link", "Ethernet", "–", "Carries every frame on the laboratory bridge network."),
+        ("Internet", "IPv4", "–", "The only address family parsed; supplies the source "
+                                       "and destination addresses used for response."),
+        ("Internet", "ARP", "–", "Resolves addresses on the lab segment. Observed but "
+                                      "not parsed."),
+        ("Internet", "ICMP", "proto 1", "Not parsed. A stated limitation: an ICMP flood or "
+                                        "tunnel would not be seen."),
+        ("Transport", "TCP", "proto 6", "The principal protocol. Flags, window size and "
+                                        "handshake state are read by the signature rules; all "
+                                        "four laboratory attacks are TCP."),
+        ("Transport", "UDP", "proto 17", "Parsed, but carries no flags or connection state. "
+                                         "Used by DNS and NTP traffic."),
+        ("Application", "DNS", "53 / UDP", "129,011 flows. The commonest port in the test "
+                                           "split; benign background traffic."),
+        ("Application", "HTTP", "80", "80,737 flows. The protected web server, the slow "
+                                      "denial-of-service target and the brute-force target."),
+        ("Application", "HTTPS / TLS", "443", "69,787 flows. Encrypted, so only traffic shape "
+                                              "is observable, never content."),
+        ("Application", "NTP", "123", "3,143 flows. Time synchronisation; benign."),
+        ("Application", "SSH", "22", "1,509 flows. Target of the SSH-Patator brute force and "
+                                     "a watched login port."),
+        ("Application", "FTP", "21", "1,401 flows. Target of the FTP-Patator brute force and "
+                                     "a watched login port."),
+        ("Application", "LDAP", "389", "862 flows. Directory lookups in benign traffic."),
+        ("Application", "NetBIOS / SMB", "139, 445", "Windows file sharing in benign traffic, "
+                                                     "and a frequent port-scan target."),
+        ("Application", "HTTP-alt", "8080", "The port on which the Bot class contacts its "
+                                            "command-and-control server."),
+        ("Application", "Telnet, RDP", "23, 3389", "Watched login ports in the brute-force "
+                                                   "rule, alongside FTP and SSH."),
+        ("System", "WebSocket", "8000", "Carries live events from the detection engine to the "
+                                        "desktop application."),
+        ("System", "HTTP REST", "8000", "The control API: status, alerts, blocks, and naming "
+                                        "a discovered family."),
+        ("System", "iptables / netfilter", "–", "Not a protocol but the enforcement "
+                                                     "mechanism by which a verdict becomes a "
+                                                     "rule."),
+    ]
+    table(doc, ["Layer", "Protocol", "Port", "Role in the system"], rows,
+          widths=[0.9, 1.3, 0.9, 3.4], size=9,
+          caption="Table 3.3: Protocols observed, parsed and used by the system.")
+    para(doc, "Two decisions in this table deserve comment. The protocol number itself is one "
+              "of the 59 model inputs, so a classifier can learn that a given attack family "
+              "occurs only over a particular transport. The destination port, by contrast, is "
+              "deliberately excluded from the inputs: in CIC-IDS2017 almost every "
+              "denial-of-service flow targets port 80, so a model permitted to use the port "
+              "would learn that association rather than the behaviour, and would fail on any "
+              "network whose web server listens elsewhere.")
+    para(doc, "The 69,787 HTTPS flows illustrate both the strength and the boundary of a "
+              "flow-statistics approach. Transport Layer Security conceals the content of a "
+              "conversation but not its shape, so timing, sizes, direction and packet counts "
+              "remain measurable and the detectors continue to function. Equally, an attack "
+              "carried inside that encrypted payload is invisible, which is the same "
+              "limitation Section 5.1.3 measures for web attacks over plain HTTP.")
 
     section(doc, "3.3 Architecture and Workflow")
     para(doc, "Figure 3.2 shows the layered architecture. The data path is as follows.")
@@ -1341,6 +1405,22 @@ def chapter5(doc, m):
            "Figure 5.13: After the rule expires, or after the operator clicks Unblock all, "
            "connectivity is restored. Every automated action is reversible and time-bounded.",
            width=5.8)
+    figure(doc, "docs/screenshots/lab_live_capture.png",
+           "Figure 5.14: The desktop application during a complete laboratory run, in live "
+           "capture mode with the iptables backend active. All four attacks have been "
+           "detected, the attacker is currently blocked with 43 seconds remaining, and the "
+           "open-set layer has additionally formed thirteen unknown families from the live "
+           "attack traffic.", width=6.3)
+    para(doc, "A detail of that run is worth recording, because it was not anticipated. The "
+              "open-set layer produced alerts on live traffic as well as the signature rules: "
+              "the nmap scan and the slow HTTP attack generated flows that the classifiers "
+              "placed in no trained class, and the clusterer grouped them into families whose "
+              "fingerprints describe exactly what the tools do. One family collected 66 flows "
+              "of zero-length forward packets at 139,810 packets per second, which is a SYN "
+              "scan described in the system's own words. The laboratory tools do not behave "
+              "identically to the CIC-IDS2017 recordings of the same attack categories, and "
+              "the open-set layer reports that difference rather than silently forcing the "
+              "traffic into the nearest trained class.")
     para(doc, "In dataset replay mode with the full pipeline loaded, 4,176 flows produced 12 "
               "alerts, each correctly named by the classifiers, and 76 unknown families formed "
               "from the benign tail, none of which reached the reporting threshold, so no "
@@ -1348,12 +1428,12 @@ def chapter5(doc, m):
               "the open-set layer is active and routing flows, but it reports nothing because "
               "nothing recurs.")
     figure(doc, "docs/screenshots/app_families_dark.png",
-           "Figure 5.14: The desktop application during replay. The alert feed names each "
+           "Figure 5.15: The desktop application during replay. The alert feed names each "
            "attack with the detector that produced it, and the Unknown families discovered "
            "panel at the lower left lists the families formed from the benign tail with their "
            "fingerprints and nearest known class.", width=6.3)
     figure(doc, "docs/screenshots/app_families_light.png",
-           "Figure 5.15: The same application after an analyst has named a family. The panel "
+           "Figure 5.16: The same application after an analyst has named a family. The panel "
            "header reads “113 discovered, 1 named” and the named family is "
            "highlighted; the name persists across restarts and is used by every later alert "
            "about that family.", width=6.3)
